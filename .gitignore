@@ -1,0 +1,16 @@
+# Environment — contains site password and AWS credentials
+.env
+
+# Source CSVs — Key file contains manager PII (names, phones, emails)
+2026 D7 Original Schedule - Key.csv
+
+# Generated output — embeds manager PII from the Key file
+output/
+
+# Dependencies
+node_modules/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp

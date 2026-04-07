@@ -1,0 +1,717 @@
+// D7 Schedule Generator
+// Reads CSV files and outputs HTML schedule documents per team and per location.
+// Usage: node generate-schedules.js
+
+const fs = require('fs');
+const path = require('path');
+const { getPasswordHash, passwordGateSnippet, injectGate } = require('./config');
+const gateSnippet = passwordGateSnippet(getPasswordHash());
+
+// ---------------------------------------------------------------------------
+// CSV parser — handles quoted fields containing commas and newlines
+// ---------------------------------------------------------------------------
+function parseCSV(content) {
+  const rows = [];
+  let current = [];
+  let cell = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < content.length; i++) {
+    const ch = content[i];
+    if (ch === '"') {
+      if (inQuotes && content[i + 1] === '"') {
+        cell += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === ',' && !inQuotes) {
+      current.push(cell.trim());
+      cell = '';
+    } else if (ch === '\r' && !inQuotes) {
+      // skip CR; \r\n will be handled when \n is encountered
+    } else if (ch === '\n' && !inQuotes) {
+      current.push(cell.trim());
+      rows.push(current);
+      current = [];
+      cell = '';
+    } else {
+      cell += ch;
+    }
+  }
+  if (cell || current.length > 0) {
+    current.push(cell.trim());
+    if (current.some(c => c !== '')) rows.push(current);
+  }
+  return rows;
+}
+
+// ---------------------------------------------------------------------------
+// Parse Key CSV → map of teamNum → team info
+// ---------------------------------------------------------------------------
+function parseKey(content) {
+  const rows = parseCSV(content);
+  const teams = {};
+  let currentDivision = '';
+
+  const divisionHeaders = new Set([
+    '3A Player Pitch Baseball',
+    'Major Baseball',
+    '50/70 Baseball',
+    'JR Baseball',
+    '2A Softball',
+    '3A Softball',
+    'Major Softball',
+    'JR Softball',
+  ]);
+
+  for (const row of rows) {
+    if (!row[0]) continue;
+    const first = row[0];
+    if (divisionHeaders.has(first)) {
+      currentDivision = first;
+    } else if (first === 'Team' || first.includes('Inter-League')) {
+      continue;
+    } else if (row[1] && /^[A-H]\d+$/.test(row[1])) {
+      teams[row[1]] = {
+        name: first,
+        num: row[1],
+        manager: row[2] || '',
+        phone: row[3] || '',
+        email: row[4] || '',
+        division: currentDivision,
+      };
+    }
+  }
+  return teams;
+}
+
+// ---------------------------------------------------------------------------
+// Parse individual game codes from a cell
+// Returns array of { team1, team2, time }
+// ---------------------------------------------------------------------------
+function parseGames(cell) {
+  if (!cell) return [];
+
+  // Normalize: collapse whitespace/newlines, fix semicolon times, remove stray spaces in team codes
+  let text = cell
+    .replace(/[\r\n]+/g, ' ')
+    .replace(/(\d+);(\d+)/g, '$1:$2')   // "9;00" → "9:00"
+    .replace(/([A-H])\s+(\d)/g, '$1$2') // "A 1" → "A1"
+    .replace(/--/g, '-')                  // double dash → single
+    .trim();
+
+  const games = [];
+
+  // Match game tokens: Letter+digits dash (optional Letter) digits
+  // e.g. A3-4, B12-F9 (second team letter present), F12-9
+  const gameRe = /([A-H]\d+)-([A-H]?\d+)/g;
+  let match;
+  const found = [];
+  while ((match = gameRe.exec(text)) !== null) {
+    found.push({
+      raw: match[0],
+      team1raw: match[1],
+      team2raw: match[2],
+      end: match.index + match[0].length,
+      nextStart: null, // filled below
+    });
+  }
+
+  for (let i = 0; i < found.length; i++) {
+    const m = found[i];
+    const nextStart = i + 1 < found.length ? found[i + 1].index : text.length;
+    m.nextStart = nextStart;
+
+    const prefix = m.team1raw[0]; // letter from first team
+    const team1 = m.team1raw;
+    // Second team: if it already has a letter prefix keep it, else add same letter
+    const team2 = /^[A-H]/.test(m.team2raw) ? m.team2raw : prefix + m.team2raw;
+
+    // Validate both teams look like real codes (1–2 digits)
+    if (!/^\d{1,2}$/.test(team1.slice(1)) || !/^[A-H]\d{1,2}$/.test(team2)) {
+      console.warn(`  Skipping unrecognized game code: "${m.raw}" in cell: "${cell.substring(0, 60)}"`);
+      continue;
+    }
+
+    // Extract time from the text between this match end and next match start
+    const between = text.substring(m.end, nextStart);
+    const timeMatch = between.match(/(\d{1,2}:\d{2})/);
+    const time = timeMatch ? timeMatch[1] : null;
+
+    games.push({ team1, team2, time });
+  }
+
+  return games;
+}
+
+// ---------------------------------------------------------------------------
+// Parse a Week CSV → array of game objects
+// ---------------------------------------------------------------------------
+function parseWeek(content, weekNum) {
+  const rows = parseCSV(content);
+  if (rows.length === 0) return [];
+
+  // Row 0: WEEK N, date1, date2, date3, date4, date5, date6
+  const header = rows[0];
+  const dates = header.slice(1).map(d => d.replace(/(\d+)(st|nd|rd|th)/i, '$1').trim());
+
+  const games = [];
+
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row[0]) continue;
+    const location = row[0];
+
+    for (let c = 1; c <= 6; c++) {
+      const cell = row[c];
+      if (!cell) continue;
+      const date = dates[c - 1];
+      if (!date) continue;
+
+      const cellGames = parseGames(cell);
+      for (const g of cellGames) {
+        games.push({ week: weekNum, date, location, team1: g.team1, team2: g.team2, time: g.time });
+      }
+    }
+  }
+
+  return games;
+}
+
+// ---------------------------------------------------------------------------
+// Date / time helpers
+// ---------------------------------------------------------------------------
+function parseDate(str) {
+  return new Date(`${str} 2026`);
+}
+
+// All games run 9 AM – 6 PM. Times in the CSV have no AM/PM designator.
+// Hours 7–11 → AM (e.g. 9:00 AM Saturday morning)
+// Hour 12 and hours 1–6 → PM (12:30 PM, 3:00 PM, 6:00 PM)
+function formatTime(timeStr) {
+  const [h, m] = timeStr.split(':').map(Number);
+  const isPM = h === 12 || (h >= 1 && h <= 6);
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${isPM ? 'PM' : 'AM'}`;
+}
+
+// ---------------------------------------------------------------------------
+// Division color map
+// ---------------------------------------------------------------------------
+const DIVISION_COLORS = {
+  '3A Player Pitch Baseball': { bg: '#1a365d', light: '#ebf8ff' },
+  'Major Baseball':           { bg: '#2d3748', light: '#f7fafc' },
+  '50/70 Baseball':           { bg: '#744210', light: '#fffbeb' },
+  'JR Baseball':              { bg: '#22543d', light: '#f0fff4' },
+  '2A Softball':              { bg: '#702459', light: '#fff5f7' },
+  '3A Softball':              { bg: '#553c9a', light: '#faf5ff' },
+  'Major Softball':           { bg: '#7b341e', light: '#fff5f0' },
+  'JR Softball':              { bg: '#065666', light: '#edfdfd' },
+};
+
+function divisionColor(division) {
+  return DIVISION_COLORS[division] || { bg: '#2c5282', light: '#ebf4ff' };
+}
+
+// ---------------------------------------------------------------------------
+// Nav bar helper
+// prefix = '' for root pages, '../' for pages one level deep (teams/, locations/)
+// active = 'home' | 'teams' | 'locations' | 'verify'
+// ---------------------------------------------------------------------------
+function navBar(prefix, active) {
+  const tabs = [
+    { id: 'home',        label: 'Home',         href: `${prefix}index.html` },
+    { id: 'verify',      label: 'Verification', href: `${prefix}verification.html` },
+  ];
+  const links = tabs.map(t =>
+    `<a href="${t.href}" class="nav-tab${t.id === active ? ' nav-active' : ''}">${t.label}</a>`
+  ).join('');
+  const logo = `<a href="${prefix}index.html" class="nav-logo" aria-label="Home"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 41.853493 43.774906" width="32" height="32"><g transform="translate(-90.222916,-114.82916)"><g transform="matrix(1.1555538,0,0,1.1555538,78.426853,97.349589)"><g transform="matrix(0.49727409,0,0,0.49727409,-19.810891,-97.191323)"><path style="fill:#00053d;fill-opacity:1;stroke:none" d="m 60.367188,234.01172 c -10e-7,10.54232 0,21.08463 0,31.62695 12.133051,12.13778 24.269449,24.27222 36.404296,36.40821 12.143206,-12.1361 24.289556,-24.26904 36.431636,-36.40626 0,-13.25781 10e-6,-26.51562 0,-39.77343 -24.27864,0 -48.557287,0 -72.835932,0 0,2.71484 -10e-7,5.42968 0,8.14453 z"/><path d="m 68.51081,234.01103 v 28.25554 l 28.261782,28.26179 28.286758,-28.26179 v -28.25554 z m 56.54854,28.25554 v -28.25554 z" style="fill:#00053d;fill-opacity:1;stroke:#ce153f;stroke-width:3.71828;stroke-opacity:1"/></g><text style="font-weight:900;font-size:9.2471px;font-family:sans-serif;text-anchor:middle;fill:#ffffff" x="28.146749" y="32.846935">D7</text><text style="font-weight:900;font-size:2.876px;font-family:sans-serif;text-anchor:middle;fill:#ffffff" x="28" y="38.5">OREGON</text></g></g></svg></a>`;
+  return `<nav class="nav-bar">${logo}${links}</nav>`;
+}
+
+// ---------------------------------------------------------------------------
+// HTML shared styles + CSV download script
+// ---------------------------------------------------------------------------
+const BASE_CSS = `
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+         margin: 0; padding: 0; background: #f0f4f8; color: #2d3748; }
+  .page-body { padding: 1.5em; }
+  .nav-bar { display: flex; background: #1a202c; padding: 0 1em;
+             position: sticky; top: 0; z-index: 100;
+             box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+  .nav-logo { display: flex; align-items: center; padding: 0.35em 0.75em 0.35em 0; text-decoration: none; }
+  .nav-logo svg { display: block; }
+  .nav-tab { color: rgba(255,255,255,0.65); text-decoration: none;
+             padding: 0.75em 1.1em; font-size: 0.88em; font-weight: 500;
+             border-bottom: 3px solid transparent; transition: color 0.15s; white-space: nowrap; }
+  .nav-tab:hover { color: white; }
+  .nav-active { color: white !important; border-bottom-color: #68d391; }
+  table { width: 100%; border-collapse: collapse; background: white;
+          border-radius: 8px; overflow: hidden;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.12); margin-top: 1.5em; }
+  th { padding: 0.7em 1em; text-align: left; font-size: 0.85em;
+       letter-spacing: 0.04em; text-transform: uppercase; color: white; }
+  td { padding: 0.65em 1em; border-bottom: 1px solid #e2e8f0; font-size: 0.9em; }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #f7faff; }
+  .pill { display: inline-block; padding: 0.15em 0.6em; border-radius: 9999px;
+          font-size: 0.78em; font-weight: 600; }
+  .home-pill { background: #c6f6d5; color: #276749; }
+  .away-pill { background: #fed7d7; color: #9b2c2c; }
+  .no-games { text-align: center; padding: 2.5em; color: #a0aec0; font-style: italic; }
+  .contact small { color: #718096; font-size: 0.85em; display: block; }
+  .week-label { font-size: 0.78em; color: #a0aec0; }
+  .toolbar { display: flex; align-items: center; justify-content: space-between;
+             margin-top: 1em; flex-wrap: wrap; gap: 0.5em; }
+  .toolbar .game-count { font-size: 0.85em; color: #718096; margin: 0; }
+  .btn-csv { display: inline-flex; align-items: center; gap: 0.4em;
+             background: #276749; color: white; border: none; border-radius: 6px;
+             padding: 0.45em 1em; font-size: 0.85em; font-weight: 600;
+             cursor: pointer; text-decoration: none; }
+  .btn-csv:hover { background: #22543d; }
+  .btn-back { font-size: 0.82em; color: #3182ce; text-decoration: none; }
+  .btn-back:hover { text-decoration: underline; }
+`;
+
+// Shared client-side CSV download script
+const CSV_SCRIPT = `
+<script>
+function downloadCSV(dataId, filename) {
+  const rows = JSON.parse(document.getElementById(dataId).textContent);
+  const csv = rows.map(row =>
+    row.map(cell => {
+      const s = String(cell == null ? '' : cell);
+      return (s.includes(',') || s.includes('"') || s.includes('\\n'))
+        ? '"' + s.replace(/"/g, '""') + '"'
+        : s;
+    }).join(',')
+  ).join('\\r\\n');
+  const blob = new Blob(['\\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+<\/script>`;
+
+// ---------------------------------------------------------------------------
+// Generate HTML for a single team's schedule
+// ---------------------------------------------------------------------------
+function generateTeamHTML(team, allGames, teams) {
+  const myGames = allGames
+    .filter(g => g.team1 === team.num || g.team2 === team.num)
+    .sort((a, b) => {
+      const d = parseDate(a.date) - parseDate(b.date);
+      if (d !== 0) return d;
+      if (!a.time && !b.time) return 0;
+      if (!a.time) return 1;
+      if (!b.time) return -1;
+      return a.time.localeCompare(b.time);
+    });
+
+  const color = divisionColor(team.division);
+
+  const rows = myGames.map(g => {
+    // Visiting team is listed first (team1), home team is listed second (team2)
+    const isHome = g.team2 === team.num;
+    const oppNum = isHome ? g.team1 : g.team2;
+    const opp = teams[oppNum];
+    const oppName = opp ? opp.name : `Team ${oppNum}`;
+    const oppManager = opp ? opp.manager : '—';
+    const oppPhone = opp ? opp.phone : '';
+    const oppEmail = opp ? opp.email : '';
+    const isSaturday = new Date(`${g.date} 2026`).getDay() === 6;
+    const defaultTime = isSaturday ? 'TBD' : '6:00 PM';
+    const timeStr = g.time
+      ? (() => {
+          return formatTime(g.time);
+        })()
+      : defaultTime;
+
+    return `
+      <tr>
+        <td><strong>${g.date}</strong><br><span class="week-label">Week ${g.week}</span></td>
+        <td>${timeStr}</td>
+        <td><span class="pill ${isHome ? 'home-pill' : 'away-pill'}">${isHome ? 'Home' : 'Away'}</span></td>
+        <td class="contact">
+          <strong>${oppName}</strong>
+          <small>${oppManager}${oppPhone ? ' &middot; ' + oppPhone : ''}</small>
+          <small>${oppEmail ? '<a href="mailto:' + oppEmail + '">' + oppEmail + '</a>' : ''}</small>
+        </td>
+        <td>${g.location}</td>
+      </tr>`;
+  }).join('');
+
+  // Build JSON rows for CSV export: header + one row per game
+  const csvData = [
+    ['Date', 'Week', 'Time', 'Home/Away', 'Opponent', 'Opp Manager', 'Opp Phone', 'Opp Email', 'Location'],
+    ...myGames.map(g => {
+      const isHome = g.team2 === team.num;
+      const oppNum = isHome ? g.team1 : g.team2;
+      const opp = teams[oppNum];
+      const isSat = new Date(`${g.date} 2026`).getDay() === 6;
+      const t = g.time
+        ? formatTime(g.time)
+        : (isSat ? 'TBD' : '6:00 PM');
+      return [
+        g.date, `Week ${g.week}`, t, isHome ? 'Home' : 'Away',
+        opp ? opp.name : oppNum,
+        opp ? opp.manager : '', opp ? opp.phone : '', opp ? opp.email : '',
+        g.location,
+      ];
+    }),
+  ];
+  const csvFilename = `${team.num}_${team.name.replace(/[^a-zA-Z0-9]/g, '_')}_schedule.csv`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${team.name} — 2026 Schedule</title>
+  <style>
+    ${BASE_CSS}
+    .header { background: ${color.bg}; color: white; padding: 1.5em 2em;
+              border-radius: 10px; margin-bottom: 0.5em; }
+    .header h1 { margin: 0 0 0.2em; font-size: 1.7em; }
+    .division-tag { opacity: 0.75; font-size: 0.9em; margin-bottom: 1em; }
+    .coach-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                  gap: 1em; background: ${color.light}; border: 1px solid #e2e8f0;
+                  border-radius: 8px; padding: 1em 1.5em; margin-top: 0.5em; }
+    .coach-grid .field label { display: block; font-size: 0.75em; color: #718096;
+                               text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.1em; }
+    .coach-grid .field span { font-weight: 600; color: #2d3748; }
+    .coach-grid .field a { color: #3182ce; text-decoration: none; }
+  </style>
+</head>
+<body>
+  ${navBar('../', 'teams')}
+  <div class="page-body">
+    <div class="header">
+      <h1>${team.name}</h1>
+      <div class="division-tag">${team.division}</div>
+    </div>
+
+    <div class="coach-grid">
+      <div class="field">
+        <label>Manager</label>
+        <span>${team.manager || '—'}</span>
+      </div>
+      <div class="field">
+        <label>Phone</label>
+        <span>${team.phone ? `<a href="tel:${team.phone}">${team.phone}</a>` : '—'}</span>
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <span>${team.email ? `<a href="mailto:${team.email}">${team.email}</a>` : '—'}</span>
+      </div>
+      <div class="field">
+        <label>Team #</label>
+        <span>${team.num}</span>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <span class="game-count">${myGames.length} game${myGames.length !== 1 ? 's' : ''} scheduled &mdash; Weeks 1&ndash;8</span>
+      <button class="btn-csv" onclick="downloadCSV('csv-data','${csvFilename}')">&#8595; Download CSV</button>
+    </div>
+
+    <script id="csv-data" type="application/json">${JSON.stringify(csvData)}<\/script>
+
+    <table>
+      <thead style="background: ${color.bg}">
+        <tr>
+          <th>Date</th>
+          <th>Time</th>
+          <th>H / A</th>
+          <th>Opponent &amp; Contact</th>
+          <th>Location</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows || '<tr><td colspan="5" class="no-games">No games found in schedule</td></tr>'}
+      </tbody>
+    </table>
+  </div>
+
+  ${CSV_SCRIPT}
+</body>
+</html>`;
+}
+
+// ---------------------------------------------------------------------------
+// Generate HTML for a single location's schedule
+// ---------------------------------------------------------------------------
+function generateLocationHTML(location, allGames, teams) {
+  const locGames = allGames
+    .filter(g => g.location === location)
+    .sort((a, b) => {
+      const d = parseDate(a.date) - parseDate(b.date);
+      if (d !== 0) return d;
+      if (!a.time && !b.time) return 0;
+      if (!a.time) return 1;
+      if (!b.time) return -1;
+      return a.time.localeCompare(b.time);
+    });
+
+  const rows = locGames.map(g => {
+    const t1 = teams[g.team1];
+    const t2 = teams[g.team2];
+    const n1 = t1 ? t1.name : `Team ${g.team1}`;
+    const n2 = t2 ? t2.name : `Team ${g.team2}`;
+    const div = t1 ? t1.division : '';
+    const color = divisionColor(div);
+
+    // Visiting team is listed first (team1/n1), home team is listed second (team2/n2)
+    const isSaturday = new Date(`${g.date} 2026`).getDay() === 6;
+    const defaultTime = isSaturday ? 'TBD' : '6:00 PM';
+    const timeStr = g.time
+      ? (() => {
+          return formatTime(g.time);
+        })()
+      : defaultTime;
+
+    return `
+      <tr>
+        <td><strong>${g.date}</strong><br><span class="week-label">Week ${g.week}</span></td>
+        <td>${timeStr}</td>
+        <td><span class="pill" style="background:${color.bg}22; color:${color.bg}; border: 1px solid ${color.bg}44">${div || '—'}</span></td>
+        <td class="contact">
+          <strong>${n1}</strong>
+          ${t1 ? `<small>${t1.manager}${t1.phone ? ' &middot; ' + t1.phone : ''}</small>` : ''}
+          <small style="color:#a0aec0; font-size:0.8em">Visiting</small>
+        </td>
+        <td style="color:#718096; font-size:0.9em">vs</td>
+        <td class="contact">
+          <strong>${n2}</strong>
+          ${t2 ? `<small>${t2.manager}${t2.phone ? ' &middot; ' + t2.phone : ''}</small>` : ''}
+          <small style="color:#276749; font-size:0.8em">Home</small>
+        </td>
+      </tr>`;
+  }).join('');
+
+  // Build JSON rows for CSV export
+  const csvData = [
+    ['Date', 'Week', 'Time', 'Division', 'Visiting Team', 'Visiting Manager', 'Visiting Phone', 'Home Team', 'Home Manager', 'Home Phone'],
+    ...locGames.map(g => {
+      const t1 = teams[g.team1], t2 = teams[g.team2];
+      const isSat = new Date(`${g.date} 2026`).getDay() === 6;
+      const t = g.time
+        ? formatTime(g.time)
+        : (isSat ? 'TBD' : '6:00 PM');
+      return [
+        g.date, `Week ${g.week}`, t,
+        t1 ? t1.division : '',
+        t1 ? t1.name : g.team1, t1 ? t1.manager : '', t1 ? t1.phone : '',
+        t2 ? t2.name : g.team2, t2 ? t2.manager : '', t2 ? t2.phone : '',
+      ];
+    }),
+  ];
+  const csvFilename = location.replace(/[^a-zA-Z0-9]/g, '_') + '_schedule.csv';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${location} — 2026 Schedule</title>
+  <style>
+    ${BASE_CSS}
+    .header { background: #276749; color: white; padding: 1.5em 2em;
+              border-radius: 10px; margin-bottom: 1em; }
+    .header h1 { margin: 0 0 0.2em; font-size: 1.7em; }
+    .header .sub { opacity: 0.75; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  ${navBar('../', 'locations')}
+  <div class="page-body">
+    <div class="header">
+      <h1>${location}</h1>
+      <div class="sub">2026 D7 Inter-League Schedule</div>
+    </div>
+
+    <div class="toolbar">
+      <span class="game-count">${locGames.length} game${locGames.length !== 1 ? 's' : ''} scheduled</span>
+      <button class="btn-csv" onclick="downloadCSV('csv-data','${csvFilename}')">&#8595; Download CSV</button>
+    </div>
+
+    <script id="csv-data" type="application/json">${JSON.stringify(csvData)}<\/script>
+
+    <table>
+      <thead style="background: #276749">
+        <tr>
+          <th>Date</th>
+          <th>Time</th>
+          <th>Division</th>
+          <th>Visiting Team</th>
+          <th></th>
+          <th>Home Team</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows || '<tr><td colspan="6" class="no-games">No games scheduled at this location</td></tr>'}
+      </tbody>
+    </table>
+  </div>
+
+  ${CSV_SCRIPT}
+</body>
+</html>`;
+}
+
+// ---------------------------------------------------------------------------
+// Index page linking to all generated files
+// ---------------------------------------------------------------------------
+function generateIndex(teams, locations) {
+  const divisionOrder = [
+    '3A Player Pitch Baseball',
+    'Major Baseball',
+    '50/70 Baseball',
+    'JR Baseball',
+    '2A Softball',
+    '3A Softball',
+    'Major Softball',
+    'JR Softball',
+  ];
+
+  const byDivision = {};
+  for (const t of Object.values(teams)) {
+    if (!byDivision[t.division]) byDivision[t.division] = [];
+    byDivision[t.division].push(t);
+  }
+  for (const div of Object.keys(byDivision)) {
+    byDivision[div].sort((a, b) => a.num.localeCompare(b.num, undefined, { numeric: true }));
+  }
+
+  const teamSections = divisionOrder.map(div => {
+    if (!byDivision[div]) return '';
+    const color = divisionColor(div);
+    const links = byDivision[div].map(t => {
+      const file = `teams/${t.num}_${t.name.replace(/[^a-zA-Z0-9]/g, '_')}.html`;
+      return `<li><a href="${file}">${t.name}</a> <span style="color:#a0aec0; font-size:0.85em">${t.manager}</span></li>`;
+    }).join('\n');
+    return `
+      <section>
+        <h2 style="color:${color.bg}; border-bottom: 2px solid ${color.bg}; padding-bottom:0.3em">${div}</h2>
+        <ul>${links}</ul>
+      </section>`;
+  }).join('\n');
+
+  const locationLinks = locations.sort().map(loc => {
+    const file = `locations/${loc.replace(/[^a-zA-Z0-9]/g, '_')}.html`;
+    return `<li><a href="${file}">${loc}</a></li>`;
+  }).join('\n');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>2026 D7 Inter-League Schedule</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+           margin: 0; background: #f0f4f8; color: #2d3748; }
+    .nav-bar { display: flex; background: #1a202c; padding: 0 1em;
+               position: sticky; top: 0; z-index: 100;
+               box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+    .nav-logo { display: flex; align-items: center; padding: 0.35em 0.75em 0.35em 0; text-decoration: none; }
+    .nav-logo svg { display: block; }
+    .nav-tab { color: rgba(255,255,255,0.65); text-decoration: none;
+               padding: 0.75em 1.1em; font-size: 0.88em; font-weight: 500;
+               border-bottom: 3px solid transparent; transition: color 0.15s; white-space: nowrap; }
+    .nav-tab:hover { color: white; }
+    .nav-active { color: white !important; border-bottom-color: #68d391; }
+    .page-body { padding: 2em; max-width: 1200px; }
+    h1 { font-size: 2em; margin: 0 0 0.2em; }
+    .subtitle { color: #718096; margin-bottom: 2em; font-size: 0.9em; }
+    .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 2em; }
+    section { margin-bottom: 2em; }
+    h2 { font-size: 1.1em; margin-bottom: 0.5em; }
+    ul { list-style: none; padding: 0; margin: 0; }
+    li { padding: 0.3em 0; border-bottom: 1px solid #e2e8f0; }
+    li:last-child { border-bottom: none; }
+    a { color: #3182ce; text-decoration: none; font-weight: 500; }
+    a:hover { text-decoration: underline; }
+    .panel { background: white; border-radius: 10px; padding: 1.5em;
+             box-shadow: 0 2px 6px rgba(0,0,0,0.08); scroll-margin-top: 60px; }
+    .panel-title { font-size: 1.2em; font-weight: 700; margin-bottom: 1em;
+                   padding-bottom: 0.5em; border-bottom: 2px solid #e2e8f0; color: #2d3748; }
+  </style>
+</head>
+<body>
+  ${navBar('', 'home')}
+  <div class="page-body">
+    <h1>2026 D7 Inter-League Schedule</h1>
+    <p class="subtitle">Season runs April 13 – June 6, 2026 &nbsp;&middot;&nbsp; 8 weeks &nbsp;&middot;&nbsp; 597 games &nbsp;&middot;&nbsp; 92 teams &nbsp;&middot;&nbsp; 32 locations</p>
+
+    <div class="grid">
+      <div class="panel" id="teams">
+        <div class="panel-title">Teams by Division</div>
+        ${teamSections}
+      </div>
+      <div class="panel" id="locations">
+        <div class="panel-title">By Location</div>
+        <ul>${locationLinks}</ul>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+const baseDir = __dirname;
+const outputDir = path.join(baseDir, 'output');
+const teamsDir = path.join(outputDir, 'teams');
+const locationsDir = path.join(outputDir, 'locations');
+
+fs.mkdirSync(teamsDir, { recursive: true });
+fs.mkdirSync(locationsDir, { recursive: true });
+
+console.log('Parsing team key...');
+const keyContent = fs.readFileSync(path.join(baseDir, '2026 D7 Original Schedule - Key.csv'), 'utf8');
+const teams = parseKey(keyContent);
+console.log(`  Loaded ${Object.keys(teams).length} teams`);
+
+console.log('Parsing week schedules...');
+const allGames = [];
+for (let w = 1; w <= 8; w++) {
+  const weekFile = path.join(baseDir, `2026 D7 Original Schedule - Week ${w}.csv`);
+  if (fs.existsSync(weekFile)) {
+    const content = fs.readFileSync(weekFile, 'utf8');
+    const games = parseWeek(content, w);
+    allGames.push(...games);
+    console.log(`  Week ${w}: ${games.length} games`);
+  }
+}
+console.log(`  Total: ${allGames.length} games across all weeks`);
+
+console.log('Generating team schedules...');
+for (const team of Object.values(teams)) {
+  const html = injectGate(generateTeamHTML(team, allGames, teams), gateSnippet);
+  const filename = `${team.num}_${team.name.replace(/[^a-zA-Z0-9]/g, '_')}.html`;
+  fs.writeFileSync(path.join(teamsDir, filename), html);
+}
+console.log(`  Generated ${Object.keys(teams).length} team files`);
+
+console.log('Generating location schedules...');
+const locations = [...new Set(allGames.map(g => g.location))];
+for (const loc of locations) {
+  const html = injectGate(generateLocationHTML(loc, allGames, teams), gateSnippet);
+  const filename = loc.replace(/[^a-zA-Z0-9]/g, '_') + '.html';
+  fs.writeFileSync(path.join(locationsDir, filename), html);
+}
+console.log(`  Generated ${locations.length} location files`);
+
+console.log('Generating index...');
+const indexHtml = injectGate(generateIndex(teams, locations), gateSnippet);
+fs.writeFileSync(path.join(outputDir, 'index.html'), indexHtml);
+
+console.log('\nDone! Open output/index.html in a browser to browse all schedules.');

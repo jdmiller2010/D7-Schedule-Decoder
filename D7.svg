@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="41.853493mm"
+   height="43.774906mm"
+   viewBox="0 0 41.853493 43.774906"
+   version="1.1"
+   id="svg1"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <g
+     id="layer1"
+     transform="translate(-90.222916,-114.82916)">
+    <g
+       id="g17-6"
+       transform="matrix(1.1555538,0,0,1.1555538,78.426853,97.349589)"
+       style="display:inline">
+      <g
+         id="g9-1-8-0-0"
+         transform="matrix(0.49727409,0,0,0.49727409,-19.810891,-97.191323)">
+        <path
+           id="path22-7"
+           style="baseline-shift:baseline;display:inline;overflow:visible;fill:#00053d;fill-opacity:1;stroke:none;stroke-width:3.71828;stroke-dasharray:none;stroke-opacity:1;enable-background:accumulate;stop-color:#000000;stop-opacity:1"
+           d="m 60.367188,234.01172 c -10e-7,10.54232 0,21.08463 0,31.62695 12.133051,12.13778 24.269449,24.27222 36.404296,36.40821 12.143206,-12.1361 24.289556,-24.26904 36.431636,-36.40626 0,-13.25781 10e-6,-26.51562 0,-39.77343 -24.27864,0 -48.557287,0 -72.835932,0 0,2.71484 -10e-7,5.42968 0,8.14453 z" />
+        <path
+           d="m 68.51081,234.01103 v 28.25554 l 28.261782,28.26179 28.286758,-28.26179 v -28.25554 z m 56.54854,28.25554 v -28.25554 z"
+           style="baseline-shift:baseline;display:inline;overflow:visible;fill:#00053d;fill-opacity:1;stroke:#ce153f;stroke-width:3.71828;stroke-dasharray:none;stroke-opacity:1;enable-background:accumulate;stop-color:#000000;stop-opacity:1"
+           id="path15-1" />
+      </g>
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:900;font-stretch:expanded;font-size:9.2471px;font-family:'Zalando Sans Expanded';-inkscape-font-specification:'Zalando Sans Expanded,  Heavy Expanded';text-align:center;letter-spacing:-0.335206px;writing-mode:lr-tb;direction:ltr;text-anchor:middle;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1.09217;stroke-linecap:square;stroke-dasharray:none;paint-order:fill markers stroke"
+         x="28.146749"
+         y="32.846935"
+         id="text4-5-4-7"><tspan
+           id="tspan4-5-12-7"
+           style="font-size:9.2471px;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1.09217;stroke-dasharray:none;stroke-opacity:1"
+           x="27.979147"
+           y="32.846935">D7</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:900;font-stretch:expanded;font-size:3.32405px;font-family:'Zalando Sans Expanded';-inkscape-font-specification:'Zalando Sans Expanded,  Heavy Expanded';text-align:center;letter-spacing:-0.120497px;writing-mode:lr-tb;direction:ltr;text-anchor:middle;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.392603;stroke-linecap:square;stroke-dasharray:none;paint-order:fill markers stroke"
+         x="173.78825"
+         y="86.794548"
+         id="text4-5-3-2-9-4-59"
+         transform="matrix(0.86538594,0,0,0.86538594,-122.02143,-50.384524)"><tspan
+           id="tspan4-5-1-7-8-6-98"
+           style="font-size:3.32405px;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.392603;stroke-dasharray:none;stroke-opacity:1"
+           x="173.72801"
+           y="86.794548">OREGON</tspan></text>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,29 @@
+{
+  "name": "d7-schedule-decoder",
+  "version": "1.0.0",
+  "description": "Converts the 2026 District 7 Inter-League master schedule (CSV files exported from Excel) into human-readable HTML documents — one per team and one per field location.",
+  "main": "generate-schedules.js",
+  "scripts": {
+    "generate": "node generate-schedules.js && node generate-verification.js",
+    "dev": "vite",
+    "build": "npm run generate",
+    "preview": "vite preview",
+    "setup-s3": "node setup-s3.js",
+    "deploy": "node deploy.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jdmiller2010/D7-Schedule-Decoder.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/jdmiller2010/D7-Schedule-Decoder/issues"
+  },
+  "homepage": "https://github.com/jdmiller2010/D7-Schedule-Decoder#readme",
+  "devDependencies": {
+    "vite": "^8.0.7"
+  }
+}
