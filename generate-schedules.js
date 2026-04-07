@@ -197,6 +197,15 @@ function formatTime(timeStr) {
 }
 
 // ---------------------------------------------------------------------------
+// Phone link helper — strips formatting, adds +1 country code for tel: URI
+// ---------------------------------------------------------------------------
+function phoneLink(phone, fallback = '—') {
+  if (!phone) return fallback;
+  const digits = phone.replace(/\D/g, '');
+  return `<a href="tel:+1${digits}">${phone}</a>`;
+}
+
+// ---------------------------------------------------------------------------
 // Division color map
 // ---------------------------------------------------------------------------
 const DIVISION_COLORS = {
@@ -270,6 +279,15 @@ const BASE_CSS = `
   .btn-csv:hover { background: #22543d; }
   .btn-back { font-size: 0.82em; color: #3182ce; text-decoration: none; }
   .btn-back:hover { text-decoration: underline; }
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch;
+                  border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.12); margin-top: 1.5em; }
+  .table-scroll table { border-radius: 0; box-shadow: none; margin-top: 0; min-width: 520px; }
+  @media (max-width: 700px) {
+    .page-body { padding: 1em; }
+    h1.page-title { font-size: 1.35em; }
+    td { padding: 0.5em 0.75em; font-size: 0.85em; }
+    th { padding: 0.5em 0.75em; font-size: 0.78em; }
+  }
 `;
 
 // Shared client-side CSV download script
@@ -333,8 +351,8 @@ function generateTeamHTML(team, allGames, teams) {
         <td>${timeStr}</td>
         <td><span class="pill ${isHome ? 'home-pill' : 'away-pill'}">${isHome ? 'Home' : 'Away'}</span></td>
         <td class="contact">
-          <strong>${oppName}</strong>
-          <small>${oppManager}${oppPhone ? ' &middot; ' + oppPhone : ''}</small>
+          <strong>${opp ? `<a href="${oppNum}_${opp.name.replace(/[^a-zA-Z0-9]/g, '_')}.html">${oppName}</a>` : oppName}</strong>
+          <small>${oppManager}${oppPhone ? ' &middot; ' + phoneLink(oppPhone) : ''}</small>
           <small>${oppEmail ? '<a href="mailto:' + oppEmail + '">' + oppEmail + '</a>' : ''}</small>
         </td>
         <td>${g.location}</td>
@@ -396,7 +414,7 @@ function generateTeamHTML(team, allGames, teams) {
       </div>
       <div class="field">
         <label>Phone</label>
-        <span>${team.phone ? `<a href="tel:${team.phone}">${team.phone}</a>` : '—'}</span>
+        <span>${phoneLink(team.phone)}</span>
       </div>
       <div class="field">
         <label>Email</label>
@@ -415,6 +433,7 @@ function generateTeamHTML(team, allGames, teams) {
 
     <script id="csv-data" type="application/json">${JSON.stringify(csvData)}<\/script>
 
+    <div class="table-scroll">
     <table>
       <thead style="background: ${color.bg}">
         <tr>
@@ -429,6 +448,7 @@ function generateTeamHTML(team, allGames, teams) {
         ${rows || '<tr><td colspan="5" class="no-games">No games found in schedule</td></tr>'}
       </tbody>
     </table>
+    </div>
   </div>
 
   ${CSV_SCRIPT}
@@ -476,13 +496,13 @@ function generateLocationHTML(location, allGames, teams) {
         <td><span class="pill" style="background:${color.bg}22; color:${color.bg}; border: 1px solid ${color.bg}44">${div || '—'}</span></td>
         <td class="contact">
           <strong>${n1}</strong>
-          ${t1 ? `<small>${t1.manager}${t1.phone ? ' &middot; ' + t1.phone : ''}</small>` : ''}
+          ${t1 ? `<small>${t1.manager}${t1.phone ? ' &middot; ' + phoneLink(t1.phone) : ''}</small>` : ''}
           <small style="color:#a0aec0; font-size:0.8em">Visiting</small>
         </td>
         <td style="color:#718096; font-size:0.9em">vs</td>
         <td class="contact">
           <strong>${n2}</strong>
-          ${t2 ? `<small>${t2.manager}${t2.phone ? ' &middot; ' + t2.phone : ''}</small>` : ''}
+          ${t2 ? `<small>${t2.manager}${t2.phone ? ' &middot; ' + phoneLink(t2.phone) : ''}</small>` : ''}
           <small style="color:#276749; font-size:0.8em">Home</small>
         </td>
       </tr>`;
@@ -530,6 +550,7 @@ function generateLocationHTML(location, allGames, teams) {
 
     <script id="csv-data" type="application/json">${JSON.stringify(csvData)}<\/script>
 
+    <div class="table-scroll">
     <table>
       <thead style="background: #276749">
         <tr>
@@ -545,6 +566,7 @@ function generateLocationHTML(location, allGames, teams) {
         ${rows || '<tr><td colspan="6" class="no-games">No games scheduled at this location</td></tr>'}
       </tbody>
     </table>
+    </div>
   </div>
 
   ${CSV_SCRIPT}
@@ -583,9 +605,7 @@ function generateCoachesHTML(teams) {
 
   const leagueSections = leagueNames.map(league => {
     const rows = byLeague[league].map(t => {
-      const phone = t.phone
-        ? `<a href="tel:${t.phone.replace(/\D/g, '')}">${t.phone}</a>`
-        : '<span style="color:#a0aec0">—</span>';
+      const phone = phoneLink(t.phone, '<span style="color:#a0aec0">—</span>');
       const email = t.email
         ? `<a href="mailto:${t.email}">${t.email}</a>`
         : '<span style="color:#a0aec0">—</span>';
@@ -603,10 +623,12 @@ function generateCoachesHTML(teams) {
     return `
     <div class="league-block" id="${id}">
       <h2 class="league-name">${league}</h2>
-      <table>
-        <thead><tr><th>Team</th><th>Division</th><th>Manager</th><th>Phone</th><th>Email</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Team</th><th>Division</th><th>Manager</th><th>Phone</th><th>Email</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
     </div>`;
   }).join('\n');
 
@@ -636,8 +658,10 @@ function generateCoachesHTML(teams) {
     .league-name { font-size: 1.15em; font-weight: 700; color: #1a202c;
                    border-bottom: 3px solid #00053d; padding-bottom: 0.3em;
                    margin: 0 0 0.6em; }
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch;
+                    border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
     table { width: 100%; border-collapse: collapse; background: white;
-            border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+            border-radius: 0; overflow: hidden; box-shadow: none; min-width: 520px; }
     th { background: #2d3748; color: white; padding: 0.55em 1em;
          text-align: left; font-size: 0.78em; text-transform: uppercase; letter-spacing: 0.04em; }
     td { padding: 0.55em 1em; border-bottom: 1px solid #edf2f7; font-size: 0.88em; vertical-align: middle; }
@@ -646,6 +670,10 @@ function generateCoachesHTML(teams) {
     tbody tr.team-row { cursor: pointer; }
     a { color: #3182ce; text-decoration: none; }
     a:hover { text-decoration: underline; }
+    @media (max-width: 700px) {
+      .page-body { padding: 1em; }
+      h1.page-title { font-size: 1.35em; }
+    }
     ${FOOTER_CSS}
   </style>
 </head>
@@ -731,6 +759,11 @@ function generateIndex(teams, locations) {
              box-shadow: 0 2px 6px rgba(0,0,0,0.08); scroll-margin-top: 60px; }
     .panel-title { font-size: 1.2em; font-weight: 700; margin-bottom: 1em;
                    padding-bottom: 0.5em; border-bottom: 2px solid #e2e8f0; color: #2d3748; }
+    @media (max-width: 700px) {
+      .page-body { padding: 1em; }
+      .grid { grid-template-columns: 1fr; }
+      h1.page-title { font-size: 1.35em; }
+    }
   </style>
 </head>
 <body>

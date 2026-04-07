@@ -281,7 +281,7 @@ function section(id, title, count, color, body) {
 function table(headers, rows) {
   const ths = headers.map(h => `<th>${esc(h)}</th>`).join('');
   const trs = rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('');
-  return `<table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+  return `<div class="table-scroll"><table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table></div>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -511,8 +511,10 @@ function buildHTML(audit, teams) {
     .section-count { display: inline-flex; align-items: center; justify-content: center;
                      width: 1.8em; height: 1.8em; border-radius: 50%;
                      color: white; font-size: 0.9em; font-weight: 700; flex-shrink: 0; }
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch;
+                    border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 0.5em; }
     table { width: 100%; border-collapse: collapse; background: white;
-            border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+            border-radius: 0; overflow: hidden; box-shadow: none; min-width: 480px; }
     th { background: #2d3748; color: white; padding: 0.6em 1em;
          text-align: left; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.04em; }
     td { padding: 0.55em 1em; border-bottom: 1px solid #edf2f7; font-size: 0.88em; vertical-align: top; }
@@ -526,8 +528,13 @@ function buildHTML(audit, teams) {
     .all-clear { color: #276749; background: #f0fff4; border: 1px solid #9ae6b4;
                  padding: 0.75em 1.25em; border-radius: 6px; display: inline-block; }
     .note { font-size: 0.82em; color: #718096; margin-bottom: 0.75em; font-style: italic; }
-    #game-counts table { font-size: 0.82em; }
-    #game-counts td, #game-counts th { padding: 0.35em 0.75em; }
+    @media (max-width: 700px) {
+      .stats { padding: 1em; gap: 0.75em; }
+      .stat-card { min-width: 100px; padding: 0.75em 1em; }
+      .section-nav { padding: 0.5em 1em; }
+      main { padding: 1em 1em 3em; }
+      h1.page-title { font-size: 1.35em; }
+    }
     ${FOOTER_CSS}
   </style>
 </head>

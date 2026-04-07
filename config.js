@@ -158,7 +158,14 @@ const NAV_CSS = `
   .nav-tab:hover { color: white; }
   .nav-active { color: white !important; border-bottom-color: #68d391; }
   .nav-disclaimer { margin-left: auto; font-size: 0.85em; color: rgba(255,255,255,0.65);
-                    white-space: nowrap; padding-right: 0.5em; }`;
+                    white-space: nowrap; padding-right: 0.5em; }
+  @media (max-width: 700px) {
+    .nav-bar { padding: 0 0.5em; }
+    .nav-logo { padding-right: 0.4em; margin-bottom: -20px; }
+    .nav-logo svg { width: 42px; height: 44px; }
+    .nav-tab { padding: 0.75em 0.7em; font-size: 0.82em; }
+    .nav-disclaimer { display: none; }
+  }`;
 
 // ---------------------------------------------------------------------------
 // Shared footer
