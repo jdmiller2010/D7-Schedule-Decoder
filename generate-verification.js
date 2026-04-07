@@ -4,7 +4,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { getPasswordHash, passwordGateSnippet, injectGate } = require('./config');
+const { getPasswordHash, passwordGateSnippet, injectGate, navBar, NAV_CSS, PAGE_HEADER_CSS, FOOTER_HTML, FOOTER_CSS } = require('./config');
 const gateSnippet = passwordGateSnippet(getPasswordHash());
 
 // ---------------------------------------------------------------------------
@@ -192,13 +192,22 @@ function parseAllWeeks(baseDir, teams) {
 
   // Teams with zero games
   const teamGameCounts = {};
-  for (const num of Object.keys(teams)) teamGameCounts[num] = 0;
+  const homeCount = {};
+  const awayCount = {};
+  for (const num of Object.keys(teams)) { teamGameCounts[num] = 0; homeCount[num] = 0; awayCount[num] = 0; }
   for (const g of allGames) {
-    if (teamGameCounts[g.team1] !== undefined) teamGameCounts[g.team1]++;
-    if (teamGameCounts[g.team2] !== undefined) teamGameCounts[g.team2]++;
+    // team1 = visiting (away), team2 = home
+    if (teamGameCounts[g.team1] !== undefined) { teamGameCounts[g.team1]++; awayCount[g.team1]++; }
+    if (teamGameCounts[g.team2] !== undefined) { teamGameCounts[g.team2]++; homeCount[g.team2]++; }
   }
   const zeroGames = Object.entries(teamGameCounts).filter(([, n]) => n === 0).map(([num]) => teams[num]);
   const lowGames  = Object.entries(teamGameCounts).filter(([, n]) => n > 0 && n <= 3).map(([num, n]) => ({ team: teams[num], count: n }));
+
+  // Home/away imbalance — flag teams where |home - away| > 2
+  const homeAwayImbalance = Object.keys(teams)
+    .map(num => ({ team: teams[num], home: homeCount[num], away: awayCount[num], diff: homeCount[num] - awayCount[num] }))
+    .filter(x => Math.abs(x.diff) > 2)
+    .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
 
   // Game count summary (all teams)
   const gameCounts = Object.entries(teamGameCounts)
@@ -234,7 +243,7 @@ function parseAllWeeks(baseDir, teams) {
     }
   }
 
-  return { allGames, skippedCells, partialCells, normalizedCells, unknownTeams, crossDivision, timeConflicts, zeroGames, lowGames, gameCounts, teamGameCounts, divisionStats, divisionOutliers };
+  return { allGames, skippedCells, partialCells, normalizedCells, unknownTeams, crossDivision, timeConflicts, zeroGames, lowGames, gameCounts, teamGameCounts, divisionStats, divisionOutliers, homeAwayImbalance };
 }
 
 // ---------------------------------------------------------------------------
@@ -279,7 +288,7 @@ function table(headers, rows) {
 // Build verification HTML
 // ---------------------------------------------------------------------------
 function buildHTML(audit, teams) {
-  const { skippedCells, partialCells, normalizedCells, unknownTeams, crossDivision, timeConflicts, zeroGames, lowGames, gameCounts, allGames, divisionStats, divisionOutliers } = audit;
+  const { skippedCells, partialCells, normalizedCells, unknownTeams, crossDivision, timeConflicts, zeroGames, lowGames, gameCounts, allGames, divisionStats, divisionOutliers, homeAwayImbalance } = audit;
 
   // Link helpers — paths are relative to output/ root (where verification.html lives)
   const teamFile = t => `teams/${t.num}_${t.name.replace(/[^a-zA-Z0-9]/g, '_')}.html`;
@@ -368,6 +377,22 @@ function buildHTML(audit, teams) {
     esc(t.num), `<a href="${teamFile(t)}">${esc(t.name)}</a>`, esc(t.division), String(count),
   ]);
 
+  // --- Home/away imbalance ---
+  const imbalanceRows = homeAwayImbalance.map(({ team: t, home, away, diff }) => {
+    const total = home + away;
+    const direction = diff > 0 ? `+${diff} home` : `${diff} away`;
+    const color = Math.abs(diff) >= 5 ? '#e53e3e' : '#dd6b20';
+    return [
+      esc(t.num),
+      `<a href="${teamFile(t)}">${esc(t.name)}</a>`,
+      esc(t.division),
+      String(away),
+      String(home),
+      String(total),
+      `<strong style="color:${color}">${direction}</strong>`,
+    ];
+  });
+
   // ---------------------------------------------------------------------------
   // Recommended Changes — one actionable item per issue
   // ---------------------------------------------------------------------------
@@ -394,6 +419,15 @@ function buildHTML(audit, teams) {
       level: 'critical',
       label: 'Unparseable cell',
       detail: `<strong>Week ${c.week}, ${esc(c.date)}</strong> at ${locLink(c.location)} — cell <code>${esc(c.rawCell)}</code> could not be parsed. No game was recorded. Fix the format in the source CSV and re-run the schedule generator.`,
+    });
+  }
+
+  for (const { team: t, home, away, diff } of homeAwayImbalance) {
+    const direction = diff > 0 ? `${diff} more home than away` : `${Math.abs(diff)} more away than home`;
+    recs.push({
+      level: 'warning',
+      label: 'Home/away imbalance',
+      detail: `<a href="${teamFile(t)}">${esc(t.name)}</a> (${esc(t.num)}, ${esc(t.division)}) — <strong>${away} away, ${home} home</strong> (${direction}). Review the schedule to see if this can be balanced.`,
     });
   }
 
@@ -457,17 +491,8 @@ function buildHTML(audit, teams) {
     * { box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
            margin: 0; padding: 0; background: #f0f4f8; color: #2d3748; }
-    .nav-bar { display: flex; background: #1a202c; padding: 0 1em;
-               position: sticky; top: 0; z-index: 100;
-               box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
-    .nav-tab { color: rgba(255,255,255,0.65); text-decoration: none;
-               padding: 0.75em 1.1em; font-size: 0.88em; font-weight: 500;
-               border-bottom: 3px solid transparent; transition: color 0.15s; white-space: nowrap; }
-    .nav-tab:hover { color: white; }
-    .nav-active { color: white !important; border-bottom-color: #68d391; }
-    header { background: #1a202c; color: white; padding: 1.5em 2em; }
-    header h1 { margin: 0 0 0.3em; font-size: 1.6em; }
-    header .sub { opacity: 0.6; font-size: 0.9em; }
+    ${NAV_CSS}
+    ${PAGE_HEADER_CSS}
     .stats { display: flex; gap: 1em; padding: 1.5em 2em; flex-wrap: wrap; }
     .stat-card { background: white; border-radius: 8px; padding: 1em 1.5em;
                  box-shadow: 0 1px 4px rgba(0,0,0,0.1); min-width: 140px; text-align: center; }
@@ -503,18 +528,15 @@ function buildHTML(audit, teams) {
     .note { font-size: 0.82em; color: #718096; margin-bottom: 0.75em; font-style: italic; }
     #game-counts table { font-size: 0.82em; }
     #game-counts td, #game-counts th { padding: 0.35em 0.75em; }
+    ${FOOTER_CSS}
   </style>
 </head>
 <body>
-  <nav class="nav-bar">
-    <a href="index.html" class="nav-tab">Home</a>
-    <a href="verification.html" class="nav-tab nav-active">Verification</a>
-  </nav>
-  <header>
-    <h1>Schedule Verification Report — 2026 D7 Inter-League</h1>
-    <div class="sub">Auto-generated audit of all 8 weeks of CSV data</div>
-  </header>
-
+  ${navBar('', 'verify')}
+  <div style="padding: 1.5em 2em 0">
+    <h1 class="page-title">Schedule Verification — 2026 D7</h1>
+    <p class="page-subtitle">Auto-generated audit of all 8 weeks of CSV data</p>
+  </div>
   <div class="stats">
     <div class="stat-card"><div class="n">${totalTeams}</div><div class="label">Teams</div></div>
     <div class="stat-card"><div class="n">${totalGames}</div><div class="label">Games Parsed</div></div>
@@ -533,6 +555,7 @@ function buildHTML(audit, teams) {
     <a href="#conflicts">Time Conflicts (${timeConflicts.length})</a>
     <a href="#zerogames">Zero Games (${zeroGames.length})</a>
     <a href="#lowgames">Low Game Count (${lowGames.length})</a>
+    <a href="#homeaway">Home/Away Imbalance (${homeAwayImbalance.length})</a>
     <span style="color:#cbd5e0">|</span>
     <a href="#recommendations">&#9733; Recommended Changes (${recs.length})</a>
   </div>
@@ -628,6 +651,11 @@ function buildHTML(audit, teams) {
       );
     })()}
 
+    ${section('homeaway', 'Home/Away Imbalance — teams with 3+ more games on one side', homeAwayImbalance.length, '#dd6b20',
+      `<p class="note">In every game code the visiting team is listed first (away) and the home team is listed second. Teams flagged here have at least 3 more games on one side than the other. A difference of 1–2 is normal when a team has an odd number of games; 3+ may indicate a scheduling imbalance worth correcting.</p>
+      ${table(['Team #', 'Name', 'Division', 'Away', 'Home', 'Total', 'Difference'], imbalanceRows)}`
+    )}
+
     <section id="recommendations" style="margin-top:2em">
       <h2 style="display:flex; align-items:center; gap:0.6em; font-size:1.1em; margin-bottom:1em">
         <span class="section-count" style="background:${recs.length === 0 ? '#48bb78' : '#e53e3e'}">${recs.length}</span>
@@ -638,6 +666,7 @@ function buildHTML(audit, teams) {
     </section>
 
   </main>
+  ${FOOTER_HTML}
 </body>
 </html>`;
 }

@@ -115,4 +115,67 @@ function injectGate(html, snippet) {
   return html.replace('</body>', snippet + '\n</body>');
 }
 
-module.exports = { loadEnv, getPasswordHash, passwordGateSnippet, injectGate };
+// ---------------------------------------------------------------------------
+// Shared SVG logo (inline, no external file dependency)
+// ---------------------------------------------------------------------------
+const D7_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 41.853493 43.774906" width="80" height="84"><g transform="translate(-90.222916,-114.82916)"><g transform="matrix(1.1555538,0,0,1.1555538,78.426853,97.349589)"><g transform="matrix(0.49727409,0,0,0.49727409,-19.810891,-97.191323)"><path style="fill:#00053d;fill-opacity:1;stroke:none" d="m 60.367188,234.01172 c -10e-7,10.54232 0,21.08463 0,31.62695 12.133051,12.13778 24.269449,24.27222 36.404296,36.40821 12.143206,-12.1361 24.289556,-24.26904 36.431636,-36.40626 0,-13.25781 10e-6,-26.51562 0,-39.77343 -24.27864,0 -48.557287,0 -72.835932,0 0,2.71484 -10e-7,5.42968 0,8.14453 z"/><path d="m 68.51081,234.01103 v 28.25554 l 28.261782,28.26179 28.286758,-28.26179 v -28.25554 z m 56.54854,28.25554 v -28.25554 z" style="fill:#00053d;fill-opacity:1;stroke:#ce153f;stroke-width:3.71828;stroke-opacity:1"/></g><text style="font-weight:900;font-size:9.2471px;font-family:sans-serif;text-anchor:middle;fill:#ffffff" x="28.146749" y="32.846935">D7</text><text style="font-weight:900;font-size:2.876px;font-family:sans-serif;text-anchor:middle;fill:#ffffff" x="28" y="38.5">OREGON</text></g></g></svg>`;
+
+// ---------------------------------------------------------------------------
+// Shared nav bar
+// prefix = '' for root pages, '../' for pages one level deep (teams/, locations/)
+// active = 'home' | 'coaches' | 'verify'
+// ---------------------------------------------------------------------------
+function navBar(prefix, active) {
+  const tabs = [
+    { id: 'home',    label: 'Home',         href: `${prefix}index.html` },
+    { id: 'coaches', label: 'Coaches',      href: `${prefix}coaches.html` },
+    { id: 'verify',  label: 'Verification', href: `${prefix}verification.html` },
+  ];
+  const logo = `<a href="${prefix}index.html" class="nav-logo" aria-label="Home">${D7_LOGO_SVG}</a>`;
+  const links = tabs.map(t =>
+    `<a href="${t.href}" class="nav-tab${t.id === active ? ' nav-active' : ''}">${t.label}</a>`
+  ).join('');
+  const disclaimer = `<span class="nav-disclaimer">Provided as-is &mdash; no warranty. Schedule subject to change.</span>`;
+  return `<nav class="nav-bar">${logo}${links}${disclaimer}</nav>`;
+}
+
+// Shared page title CSS — use <h1 class="page-title"> and <p class="page-subtitle">
+const PAGE_HEADER_CSS = `
+  h1.page-title { font-size: 1.7em; margin: 0.6em 0 0.15em; color: #1a202c; }
+  p.page-subtitle { color: #718096; font-size: 0.9em; margin: 0 0 1.25em; }`;
+
+// Shared nav-bar CSS (paste into any page's <style> block)
+const NAV_CSS = `
+  .nav-bar { display: flex; align-items: center; background: #1a202c; padding: 0 1em;
+             position: sticky; top: 0; z-index: 100; overflow: visible;
+             box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+  .nav-logo { display: flex; align-items: flex-start; padding: 0.25em 0.75em 0 0;
+              text-decoration: none; align-self: flex-start; margin-bottom: -24px; }
+  .nav-logo svg { display: block; }
+  .nav-tab { color: rgba(255,255,255,0.65); text-decoration: none;
+             padding: 0.75em 1.1em; font-size: 0.88em; font-weight: 500;
+             border-bottom: 3px solid transparent; transition: color 0.15s; white-space: nowrap; }
+  .nav-tab:hover { color: white; }
+  .nav-active { color: white !important; border-bottom-color: #68d391; }
+  .nav-disclaimer { margin-left: auto; font-size: 0.85em; color: rgba(255,255,255,0.65);
+                    white-space: nowrap; padding-right: 0.5em; }`;
+
+// ---------------------------------------------------------------------------
+// Shared footer
+// ---------------------------------------------------------------------------
+const FOOTER_CSS = `
+  .site-footer { background: #1a202c; color: rgba(255,255,255,0.45); font-size: 0.75em;
+                 padding: 1em 2em; display: flex; flex-wrap: wrap; gap: 0.4em 2em;
+                 align-items: center; margin-top: 3em; }
+  .site-footer a { color: rgba(255,255,255,0.55); text-decoration: none; }
+  .site-footer a:hover { color: white; }
+  .site-footer .sep { color: rgba(255,255,255,0.2); }`;
+
+const FOOTER_HTML = `
+  <footer class="site-footer">
+    <span>&copy; 2026 StratLeague. All rights reserved.</span>
+    <span class="sep">&middot;</span>
+    <span>Contact: Jordan Miller &mdash; <a href="mailto:jdmiller2010@gmail.com">jdmiller2010@gmail.com</a></span>
+  </footer>`;
+
+module.exports = { loadEnv, getPasswordHash, passwordGateSnippet, injectGate, navBar, NAV_CSS, PAGE_HEADER_CSS, FOOTER_HTML, FOOTER_CSS };

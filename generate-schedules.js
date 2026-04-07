@@ -4,7 +4,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { getPasswordHash, passwordGateSnippet, injectGate } = require('./config');
+const { getPasswordHash, passwordGateSnippet, injectGate, navBar, NAV_CSS, PAGE_HEADER_CSS, FOOTER_HTML, FOOTER_CSS } = require('./config');
 const gateSnippet = passwordGateSnippet(getPasswordHash());
 
 // ---------------------------------------------------------------------------
@@ -215,20 +215,23 @@ function divisionColor(division) {
 }
 
 // ---------------------------------------------------------------------------
-// Nav bar helper
-// prefix = '' for root pages, '../' for pages one level deep (teams/, locations/)
-// active = 'home' | 'teams' | 'locations' | 'verify'
 // ---------------------------------------------------------------------------
-function navBar(prefix, active) {
-  const tabs = [
-    { id: 'home',        label: 'Home',         href: `${prefix}index.html` },
-    { id: 'verify',      label: 'Verification', href: `${prefix}verification.html` },
-  ];
-  const links = tabs.map(t =>
-    `<a href="${t.href}" class="nav-tab${t.id === active ? ' nav-active' : ''}">${t.label}</a>`
-  ).join('');
-  const logo = `<a href="${prefix}index.html" class="nav-logo" aria-label="Home"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 41.853493 43.774906" width="32" height="32"><g transform="translate(-90.222916,-114.82916)"><g transform="matrix(1.1555538,0,0,1.1555538,78.426853,97.349589)"><g transform="matrix(0.49727409,0,0,0.49727409,-19.810891,-97.191323)"><path style="fill:#00053d;fill-opacity:1;stroke:none" d="m 60.367188,234.01172 c -10e-7,10.54232 0,21.08463 0,31.62695 12.133051,12.13778 24.269449,24.27222 36.404296,36.40821 12.143206,-12.1361 24.289556,-24.26904 36.431636,-36.40626 0,-13.25781 10e-6,-26.51562 0,-39.77343 -24.27864,0 -48.557287,0 -72.835932,0 0,2.71484 -10e-7,5.42968 0,8.14453 z"/><path d="m 68.51081,234.01103 v 28.25554 l 28.261782,28.26179 28.286758,-28.26179 v -28.25554 z m 56.54854,28.25554 v -28.25554 z" style="fill:#00053d;fill-opacity:1;stroke:#ce153f;stroke-width:3.71828;stroke-opacity:1"/></g><text style="font-weight:900;font-size:9.2471px;font-family:sans-serif;text-anchor:middle;fill:#ffffff" x="28.146749" y="32.846935">D7</text><text style="font-weight:900;font-size:2.876px;font-family:sans-serif;text-anchor:middle;fill:#ffffff" x="28" y="38.5">OREGON</text></g></g></svg></a>`;
-  return `<nav class="nav-bar">${logo}${links}</nav>`;
+// League extraction — maps a team name to its parent league organisation
+// Multi-word leagues must appear before any single-word league they start with
+// ---------------------------------------------------------------------------
+const KNOWN_LEAGUES = [
+  'East Lane', 'Timber Country', 'South Salem', 'West Salem', 'Mt. Angel', 'St. Paul',
+  'Keizer', 'Parrish', 'Cascade', 'Eugene', 'Sheldon', 'Sprague', 'Silverton', 'Corvallis',
+];
+
+function extractLeague(name) {
+  for (const league of KNOWN_LEAGUES) {
+    if (name.startsWith(league)) return league;
+  }
+  // Fallback: everything before ' - '
+  const di = name.indexOf(' - ');
+  if (di !== -1) return name.slice(0, di).trim();
+  return name.split(' ')[0];
 }
 
 // ---------------------------------------------------------------------------
@@ -239,16 +242,9 @@ const BASE_CSS = `
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
          margin: 0; padding: 0; background: #f0f4f8; color: #2d3748; }
   .page-body { padding: 1.5em; }
-  .nav-bar { display: flex; background: #1a202c; padding: 0 1em;
-             position: sticky; top: 0; z-index: 100;
-             box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
-  .nav-logo { display: flex; align-items: center; padding: 0.35em 0.75em 0.35em 0; text-decoration: none; }
-  .nav-logo svg { display: block; }
-  .nav-tab { color: rgba(255,255,255,0.65); text-decoration: none;
-             padding: 0.75em 1.1em; font-size: 0.88em; font-weight: 500;
-             border-bottom: 3px solid transparent; transition: color 0.15s; white-space: nowrap; }
-  .nav-tab:hover { color: white; }
-  .nav-active { color: white !important; border-bottom-color: #68d391; }
+  ${NAV_CSS}
+  ${PAGE_HEADER_CSS}
+  ${FOOTER_CSS}
   table { width: 100%; border-collapse: collapse; background: white;
           border-radius: 8px; overflow: hidden;
           box-shadow: 0 2px 6px rgba(0,0,0,0.12); margin-top: 1.5em; }
@@ -374,10 +370,10 @@ function generateTeamHTML(team, allGames, teams) {
   <title>${team.name} — 2026 Schedule</title>
   <style>
     ${BASE_CSS}
-    .header { background: ${color.bg}; color: white; padding: 1.5em 2em;
-              border-radius: 10px; margin-bottom: 0.5em; }
-    .header h1 { margin: 0 0 0.2em; font-size: 1.7em; }
-    .division-tag { opacity: 0.75; font-size: 0.9em; margin-bottom: 1em; }
+    .division-tag { display: inline-block; background: ${color.bg}22; color: ${color.bg};
+                    border: 1px solid ${color.bg}55; border-radius: 9999px;
+                    font-size: 0.78em; font-weight: 600; padding: 0.15em 0.65em;
+                    margin-bottom: 0.75em; }
     .coach-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
                   gap: 1em; background: ${color.light}; border: 1px solid #e2e8f0;
                   border-radius: 8px; padding: 1em 1.5em; margin-top: 0.5em; }
@@ -390,10 +386,8 @@ function generateTeamHTML(team, allGames, teams) {
 <body>
   ${navBar('../', 'teams')}
   <div class="page-body">
-    <div class="header">
-      <h1>${team.name}</h1>
-      <div class="division-tag">${team.division}</div>
-    </div>
+    <h1 class="page-title">${team.name}</h1>
+    <span class="division-tag">${team.division}</span>
 
     <div class="coach-grid">
       <div class="field">
@@ -438,6 +432,7 @@ function generateTeamHTML(team, allGames, teams) {
   </div>
 
   ${CSV_SCRIPT}
+  ${FOOTER_HTML}
 </body>
 </html>`;
 }
@@ -520,19 +515,13 @@ function generateLocationHTML(location, allGames, teams) {
   <title>${location} — 2026 Schedule</title>
   <style>
     ${BASE_CSS}
-    .header { background: #276749; color: white; padding: 1.5em 2em;
-              border-radius: 10px; margin-bottom: 1em; }
-    .header h1 { margin: 0 0 0.2em; font-size: 1.7em; }
-    .header .sub { opacity: 0.75; font-size: 0.9em; }
   </style>
 </head>
 <body>
   ${navBar('../', 'locations')}
   <div class="page-body">
-    <div class="header">
-      <h1>${location}</h1>
-      <div class="sub">2026 D7 Inter-League Schedule</div>
-    </div>
+    <h1 class="page-title">${location}</h1>
+    <p class="page-subtitle">2026 D7 Inter-League Schedule</p>
 
     <div class="toolbar">
       <span class="game-count">${locGames.length} game${locGames.length !== 1 ? 's' : ''} scheduled</span>
@@ -559,6 +548,116 @@ function generateLocationHTML(location, allGames, teams) {
   </div>
 
   ${CSV_SCRIPT}
+  ${FOOTER_HTML}
+</body>
+</html>`;
+}
+
+// ---------------------------------------------------------------------------
+// Coaches directory page — all coaches grouped by league
+// ---------------------------------------------------------------------------
+function generateCoachesHTML(teams) {
+  const divisionOrder = [
+    '3A Player Pitch Baseball', 'Major Baseball', '50/70 Baseball', 'JR Baseball',
+    '2A Softball', '3A Softball', 'Major Softball', 'JR Softball',
+  ];
+
+  // Group by league
+  const byLeague = {};
+  for (const t of Object.values(teams)) {
+    const league = extractLeague(t.name);
+    if (!byLeague[league]) byLeague[league] = [];
+    byLeague[league].push(t);
+  }
+
+  // Sort each league's teams by division order then team number
+  for (const league of Object.keys(byLeague)) {
+    byLeague[league].sort((a, b) => {
+      const di = divisionOrder.indexOf(a.division) - divisionOrder.indexOf(b.division);
+      if (di !== 0) return di;
+      return a.num.localeCompare(b.num, undefined, { numeric: true });
+    });
+  }
+
+  const leagueNames = Object.keys(byLeague).sort();
+
+  const leagueSections = leagueNames.map(league => {
+    const rows = byLeague[league].map(t => {
+      const phone = t.phone
+        ? `<a href="tel:${t.phone.replace(/\D/g, '')}">${t.phone}</a>`
+        : '<span style="color:#a0aec0">—</span>';
+      const email = t.email
+        ? `<a href="mailto:${t.email}">${t.email}</a>`
+        : '<span style="color:#a0aec0">—</span>';
+      const teamHref = `teams/${t.num}_${t.name.replace(/[^a-zA-Z0-9]/g, '_')}.html`;
+      return `<tr class="team-row" onclick="location.href='${teamHref}'" title="View ${t.name} schedule">
+        <td><a href="${teamHref}" onclick="event.stopPropagation()">${t.name}</a></td>
+        <td><span style="font-size:0.8em;color:#718096">${t.division}</span></td>
+        <td>${t.manager || '<span style="color:#a0aec0">—</span>'}</td>
+        <td>${phone}</td>
+        <td>${email}</td>
+      </tr>`;
+    }).join('');
+
+    const id = `league-${league.replace(/[^a-zA-Z0-9]/g, '-')}`;
+    return `
+    <div class="league-block" id="${id}">
+      <h2 class="league-name">${league}</h2>
+      <table>
+        <thead><tr><th>Team</th><th>Division</th><th>Manager</th><th>Phone</th><th>Email</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }).join('\n');
+
+  const jumpLinks = leagueNames.map(l =>
+    `<a href="#league-${l.replace(/[^a-zA-Z0-9]/g, '-')}">${l}</a>`
+  ).join('');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Coach Directory — 2026 D7</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+           margin: 0; background: #f0f4f8; color: #2d3748; }
+    ${NAV_CSS}
+    ${PAGE_HEADER_CSS}
+    .page-body { padding: 1.5em 2em 4em; max-width: 1100px; }
+    .jump-nav { display: flex; flex-wrap: wrap; gap: 0.5em; margin-bottom: 2em; }
+    .jump-nav a { background: white; color: #3182ce; text-decoration: none; font-size: 0.82em;
+                  font-weight: 500; padding: 0.3em 0.75em; border-radius: 9999px;
+                  border: 1px solid #bee3f8; }
+    .jump-nav a:hover { background: #ebf8ff; }
+    .league-block { margin-bottom: 2.5em; scroll-margin-top: 70px; }
+    .league-name { font-size: 1.15em; font-weight: 700; color: #1a202c;
+                   border-bottom: 3px solid #00053d; padding-bottom: 0.3em;
+                   margin: 0 0 0.6em; }
+    table { width: 100%; border-collapse: collapse; background: white;
+            border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+    th { background: #2d3748; color: white; padding: 0.55em 1em;
+         text-align: left; font-size: 0.78em; text-transform: uppercase; letter-spacing: 0.04em; }
+    td { padding: 0.55em 1em; border-bottom: 1px solid #edf2f7; font-size: 0.88em; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #f7faff; }
+    tbody tr.team-row { cursor: pointer; }
+    a { color: #3182ce; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    ${FOOTER_CSS}
+  </style>
+</head>
+<body>
+  ${navBar('', 'coaches')}
+  <div class="page-body">
+    <h1 class="page-title">Coach Directory — 2026 D7 Inter-League</h1>
+    <p class="page-subtitle">${Object.keys(teams).length} teams across ${leagueNames.length} leagues</p>
+    <div class="jump-nav">${jumpLinks}</div>
+    ${leagueSections}
+  </div>
+  ${FOOTER_HTML}
 </body>
 </html>`;
 }
@@ -616,19 +715,10 @@ function generateIndex(teams, locations) {
     * { box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
            margin: 0; background: #f0f4f8; color: #2d3748; }
-    .nav-bar { display: flex; background: #1a202c; padding: 0 1em;
-               position: sticky; top: 0; z-index: 100;
-               box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
-    .nav-logo { display: flex; align-items: center; padding: 0.35em 0.75em 0.35em 0; text-decoration: none; }
-    .nav-logo svg { display: block; }
-    .nav-tab { color: rgba(255,255,255,0.65); text-decoration: none;
-               padding: 0.75em 1.1em; font-size: 0.88em; font-weight: 500;
-               border-bottom: 3px solid transparent; transition: color 0.15s; white-space: nowrap; }
-    .nav-tab:hover { color: white; }
-    .nav-active { color: white !important; border-bottom-color: #68d391; }
-    .page-body { padding: 2em; max-width: 1200px; }
-    h1 { font-size: 2em; margin: 0 0 0.2em; }
-    .subtitle { color: #718096; margin-bottom: 2em; font-size: 0.9em; }
+    ${NAV_CSS}
+    ${PAGE_HEADER_CSS}
+    ${FOOTER_CSS}
+    .page-body { padding: 1.5em 2em; max-width: 1200px; }
     .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 2em; }
     section { margin-bottom: 2em; }
     h2 { font-size: 1.1em; margin-bottom: 0.5em; }
@@ -646,8 +736,8 @@ function generateIndex(teams, locations) {
 <body>
   ${navBar('', 'home')}
   <div class="page-body">
-    <h1>2026 D7 Inter-League Schedule</h1>
-    <p class="subtitle">Season runs April 13 – June 6, 2026 &nbsp;&middot;&nbsp; 8 weeks &nbsp;&middot;&nbsp; 597 games &nbsp;&middot;&nbsp; 92 teams &nbsp;&middot;&nbsp; 32 locations</p>
+    <h1 class="page-title">2026 D7 Inter-League Schedule</h1>
+    <p class="page-subtitle">Season runs April 13 – June 6, 2026 &nbsp;&middot;&nbsp; 8 weeks &nbsp;&middot;&nbsp; 597 games &nbsp;&middot;&nbsp; 92 teams &nbsp;&middot;&nbsp; 32 locations</p>
 
     <div class="grid">
       <div class="panel" id="teams">
@@ -660,6 +750,7 @@ function generateIndex(teams, locations) {
       </div>
     </div>
   </div>
+  ${FOOTER_HTML}
 </body>
 </html>`;
 }
@@ -713,5 +804,9 @@ console.log(`  Generated ${locations.length} location files`);
 console.log('Generating index...');
 const indexHtml = injectGate(generateIndex(teams, locations), gateSnippet);
 fs.writeFileSync(path.join(outputDir, 'index.html'), indexHtml);
+
+console.log('Generating coaches directory...');
+const coachesHtml = injectGate(generateCoachesHTML(teams), gateSnippet);
+fs.writeFileSync(path.join(outputDir, 'coaches.html'), coachesHtml);
 
 console.log('\nDone! Open output/index.html in a browser to browse all schedules.');
