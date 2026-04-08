@@ -119,7 +119,7 @@ function parseAllWeeks(baseDir, teams) {
   // location+date+time → game, for conflict detection
   const slotMap = {};
 
-  for (let w = 1; w <= 8; w++) {
+  for (let w = 1; w <= 52; w++) {
     const weekFile = path.join(baseDir, `2026 D7 Original Schedule - Week ${w}.csv`);
     if (!fs.existsSync(weekFile)) continue;
 
@@ -243,26 +243,31 @@ function parseAllWeeks(baseDir, teams) {
     }
   }
 
+  // Assign default times for Saturday games without an explicit time.
+  // Group timeless Saturday games by date+location; first game → 12:30, second → 3:00.
+  const satGroups = {};
+  for (const g of allGames) {
+    if (g.time || new Date(`${g.date} 2026`).getDay() !== 6) continue;
+    const key = `${g.date}|${g.location}`;
+    if (!satGroups[key]) satGroups[key] = [];
+    satGroups[key].push(g);
+  }
+  for (const games of Object.values(satGroups)) {
+    if (games[0]) games[0].time = '12:30';
+    if (games[1]) games[1].time = '3:00';
+  }
+
   return { allGames, skippedCells, partialCells, normalizedCells, unknownTeams, crossDivision, timeConflicts, zeroGames, lowGames, gameCounts, teamGameCounts, divisionStats, divisionOutliers, homeAwayImbalance };
 }
 
 // ---------------------------------------------------------------------------
 // Time / HTML helpers
 // ---------------------------------------------------------------------------
-function formatTime(timeStr) {
-  const [h, m] = timeStr.split(':').map(Number);
-  const isPM = h === 12 || (h >= 1 && h <= 6);
-  const h12 = h % 12 || 12;
-  return `${h12}:${String(m).padStart(2, '0')} ${isPM ? 'PM' : 'AM'}`;
-}
 
 function esc(str) {
   return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function badge(text, color) {
-  return `<span class="badge" style="background:${color}">${esc(text)}</span>`;
-}
 
 function section(id, title, count, color, body) {
   const severityClass = count === 0 ? 'ok' : 'warn';
@@ -288,7 +293,7 @@ function table(headers, rows) {
 // Build verification HTML
 // ---------------------------------------------------------------------------
 function buildHTML(audit, teams) {
-  const { skippedCells, partialCells, normalizedCells, unknownTeams, crossDivision, timeConflicts, zeroGames, lowGames, gameCounts, allGames, divisionStats, divisionOutliers, homeAwayImbalance } = audit;
+  const { skippedCells, partialCells, normalizedCells, unknownTeams, crossDivision, timeConflicts, zeroGames, lowGames, allGames, divisionStats, divisionOutliers, homeAwayImbalance } = audit;
 
   // Link helpers — paths are relative to output/ root (where verification.html lives)
   const teamFile = t => `teams/${t.num}_${t.name.replace(/[^a-zA-Z0-9]/g, '_')}.html`;
@@ -550,7 +555,6 @@ function buildHTML(audit, teams) {
     <div class="stat-card" style="border-top: 3px solid #e53e3e"><div class="n" style="color:#e53e3e">${criticalCount}</div><div class="label">Critical</div></div>
     <div class="stat-card" style="border-top: 3px solid #dd6b20"><div class="n" style="color:#dd6b20">${warningCount}</div><div class="label">Warnings</div></div>
     <div class="stat-card" style="border-top: 3px solid #2b6cb0"><div class="n" style="color:#2b6cb0">${infoCount}</div><div class="label">Info</div></div>
-    <div class="stat-card issues"><div class="n">${issueCount}</div><div class="label">Total Issues</div></div>
   </div>
 
   <div class="section-nav">

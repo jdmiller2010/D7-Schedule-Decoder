@@ -41,19 +41,23 @@ function getPasswordHash() {
 function passwordGateSnippet(hash) {
   if (!hash) return '';
   return `
-<div id="pw-gate" style="position:fixed;inset:0;background:#1a202c;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
-  <div style="background:white;border-radius:12px;padding:2em 2.5em;text-align:center;max-width:320px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.4)">
+<div id="pw-gate" style="position:fixed;inset:0;background:#222222;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5em;padding:2em 1em;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;overflow-y:auto">
+  <div style="background:white;border-radius:12px;padding:2em 2.5em;text-align:center;max-width:320px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.4)">
     <div style="margin-bottom:0.5em;display:flex;justify-content:center"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 41.853493 43.774906" width="64" height="64"><g transform="translate(-90.222916,-114.82916)"><g transform="matrix(1.1555538,0,0,1.1555538,78.426853,97.349589)"><g transform="matrix(0.49727409,0,0,0.49727409,-19.810891,-97.191323)"><path style="fill:#00053d;fill-opacity:1;stroke:none" d="m 60.367188,234.01172 c -10e-7,10.54232 0,21.08463 0,31.62695 12.133051,12.13778 24.269449,24.27222 36.404296,36.40821 12.143206,-12.1361 24.289556,-24.26904 36.431636,-36.40626 0,-13.25781 10e-6,-26.51562 0,-39.77343 -24.27864,0 -48.557287,0 -72.835932,0 0,2.71484 -10e-7,5.42968 0,8.14453 z"/><path d="m 68.51081,234.01103 v 28.25554 l 28.261782,28.26179 28.286758,-28.26179 v -28.25554 z m 56.54854,28.25554 v -28.25554 z" style="fill:#00053d;fill-opacity:1;stroke:#ce153f;stroke-width:3.71828;stroke-opacity:1"/></g><text style="font-weight:900;font-size:9.2471px;font-family:sans-serif;text-anchor:middle;fill:#ffffff" x="28.146749" y="32.846935">D7</text><text style="font-weight:900;font-size:2.876px;font-family:sans-serif;text-anchor:middle;fill:#ffffff" x="28" y="38.5">OREGON</text></g></g></svg></div>
-    <h2 style="margin:0 0 0.3em;color:#1a202c;font-size:1.15em">District 7 — 2026 Schedule</h2>
+    <h2 style="margin:0 0 0.3em;color:#222222;font-size:1.15em">District 7 — 2026 Schedule</h2>
     <p style="color:#718096;font-size:0.85em;margin:0 0 1.25em">Enter the password to view</p>
     <input id="pw-input" type="password" placeholder="Password"
       style="width:100%;padding:0.55em 0.75em;border:2px solid #e2e8f0;border-radius:6px;font-size:0.95em;margin-bottom:0.75em;outline:none;box-sizing:border-box"
-      onfocus="this.style.borderColor='#68d391'" onblur="this.style.borderColor='#e2e8f0'">
+      onfocus="this.style.borderColor='#ce153f'" onblur="this.style.borderColor='#e2e8f0'">
     <button onclick="d7CheckPw()"
-      style="width:100%;padding:0.6em;background:#276749;color:white;border:none;border-radius:6px;font-size:0.95em;font-weight:600;cursor:pointer">
+      style="width:100%;padding:0.6em;background:#ce153f;color:white;border:none;border-radius:6px;font-size:0.95em;font-weight:600;cursor:pointer">
       Enter
     </button>
     <p id="pw-error" style="color:#e53e3e;font-size:0.82em;margin:0.6em 0 0;visibility:hidden">Incorrect password — try again</p>
+  </div>
+  <div style="max-width:320px;width:100%;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:1em 1.25em;text-align:left">
+    <p style="margin:0 0 0.4em;font-size:0.8em;font-weight:700;color:rgba(255,255,255,0.9);letter-spacing:0.04em;text-transform:uppercase">Important Disclaimer</p>
+    <p style="margin:0;color:rgba(255,255,255,0.75);font-size:0.78em;line-height:1.6">This tool is provided independently and is not affiliated with, endorsed by, or authorized by any Local League, Oregon District 7, or Little League International. It is intended solely as a user-friendly presentation of the official District 7 interleague schedule. While we strive for accuracy, this tool may not reflect all updates or changes. The official District 7 schedule should always be considered the final and authoritative source. This tool is provided as-is, without warranty of any kind.</p>
   </div>
 </div>
 <script>
@@ -128,25 +132,24 @@ const D7_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 41.853
 function navBar(prefix, active) {
   const tabs = [
     { id: 'home',    label: 'Home',         href: `${prefix}index.html` },
-    { id: 'coaches', label: 'Coaches',      href: `${prefix}coaches.html` },
+    { id: 'leagues', label: 'Leagues',      href: `${prefix}leagues.html` },
     { id: 'verify',  label: 'Verification', href: `${prefix}verification.html` },
   ];
   const logo = `<a href="${prefix}index.html" class="nav-logo" aria-label="Home">${D7_LOGO_SVG}</a>`;
   const links = tabs.map(t =>
     `<a href="${t.href}" class="nav-tab${t.id === active ? ' nav-active' : ''}">${t.label}</a>`
   ).join('');
-  const disclaimer = `<span class="nav-disclaimer">Provided as-is &mdash; no warranty. Schedule subject to change.</span>`;
-  return `<nav class="nav-bar">${logo}${links}${disclaimer}</nav>`;
+  return `<nav class="nav-bar">${logo}${links}</nav>`;
 }
 
 // Shared page title CSS — use <h1 class="page-title"> and <p class="page-subtitle">
 const PAGE_HEADER_CSS = `
-  h1.page-title { font-size: 1.7em; margin: 0.6em 0 0.15em; color: #1a202c; }
+  h1.page-title { font-size: 1.7em; margin: 0.6em 0 0.15em; color: #222222; }
   p.page-subtitle { color: #718096; font-size: 0.9em; margin: 0 0 1.25em; }`;
 
 // Shared nav-bar CSS (paste into any page's <style> block)
 const NAV_CSS = `
-  .nav-bar { display: flex; align-items: center; background: #1a202c; padding: 0 1em;
+  .nav-bar { display: flex; align-items: center; background: #222222; padding: 0 1em;
              position: sticky; top: 0; z-index: 100; overflow: visible;
              box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
   .nav-logo { display: flex; align-items: flex-start; padding: 0.25em 0.75em 0 0;
@@ -155,23 +158,32 @@ const NAV_CSS = `
   .nav-tab { color: rgba(255,255,255,0.65); text-decoration: none;
              padding: 0.75em 1.1em; font-size: 0.88em; font-weight: 500;
              border-bottom: 3px solid transparent; transition: color 0.15s; white-space: nowrap; }
-  .nav-tab:hover { color: white; }
-  .nav-active { color: white !important; border-bottom-color: #68d391; }
-  .nav-disclaimer { margin-left: auto; font-size: 0.85em; color: rgba(255,255,255,0.65);
-                    white-space: nowrap; padding-right: 0.5em; }
+  .nav-tab:hover { color: white; text-decoration: none; }
+  .nav-active { color: white !important; border-bottom-color: #ce153f; }
   @media (max-width: 700px) {
     .nav-bar { padding: 0 0.5em; }
     .nav-logo { padding-right: 0.4em; margin-bottom: -20px; }
     .nav-logo svg { width: 42px; height: 44px; }
     .nav-tab { padding: 0.75em 0.7em; font-size: 0.82em; }
-    .nav-disclaimer { display: none; }
+  }
+  .disclaimer-banner { background: #fffbeb; border-bottom: 1px solid #f6e05e;
+                       padding: 0.6em 2em; font-size: 0.78em; color: #744210;
+                       line-height: 1.5; }
+  @media (max-width: 700px) {
+    .disclaimer-banner { padding: 0.6em 1em; }
   }`;
+
+const DISCLAIMER_BANNER = `<div class="disclaimer-banner">This tool is provided independently and is not affiliated with, endorsed by, or authorized by any Local League, Oregon District 7, or Little League International. It is intended solely as a user-friendly presentation of the official District 7 interleague schedule. While we strive for accuracy, this tool may not reflect all updates or changes. The official District 7 schedule should always be considered the final and authoritative source. This tool is provided as-is, without warranty of any kind.</div>`;
 
 // ---------------------------------------------------------------------------
 // Shared footer
 // ---------------------------------------------------------------------------
 const FOOTER_CSS = `
-  .site-footer { background: #1a202c; color: rgba(255,255,255,0.45); font-size: 0.75em;
+  .disclaimer-banner { background: #fffbeb; border-top: 1px solid #f6e05e;
+                       padding: 0.75em 2em; font-size: 0.78em; color: #744210;
+                       line-height: 1.5; }
+  @media (max-width: 700px) { .disclaimer-banner { padding: 0.75em 1em; } }
+  .site-footer { background: #222222; color: rgba(255,255,255,0.45); font-size: 0.75em;
                  padding: 1em 2em; display: flex; flex-wrap: wrap; gap: 0.4em 2em;
                  align-items: center; margin-top: 3em; }
   .site-footer a { color: rgba(255,255,255,0.55); text-decoration: none; }
@@ -179,10 +191,11 @@ const FOOTER_CSS = `
   .site-footer .sep { color: rgba(255,255,255,0.2); }`;
 
 const FOOTER_HTML = `
+  <div class="disclaimer-banner">This tool is provided independently and is not affiliated with, endorsed by, or authorized by any Local League, Oregon District 7, or Little League International. It is intended solely as a user-friendly presentation of the official District 7 interleague schedule. While we strive for accuracy, this tool may not reflect all updates or changes. The official District 7 schedule should always be considered the final and authoritative source. This tool is provided as-is, without warranty of any kind.</div>
   <footer class="site-footer">
-    <span>&copy; 2026 StratLeague. All rights reserved.</span>
+    <span>&copy; 2026 Jordan Miller. All rights reserved.</span>
     <span class="sep">&middot;</span>
-    <span>Contact: Jordan Miller &mdash; <a href="mailto:jdmiller2010@gmail.com">jdmiller2010@gmail.com</a></span>
+    <span><a href="mailto:jdmiller2010@gmail.com">jdmiller2010@gmail.com</a></span>
   </footer>`;
 
-module.exports = { loadEnv, getPasswordHash, passwordGateSnippet, injectGate, navBar, NAV_CSS, PAGE_HEADER_CSS, FOOTER_HTML, FOOTER_CSS };
+module.exports = { loadEnv, getPasswordHash, passwordGateSnippet, injectGate, navBar, NAV_CSS, PAGE_HEADER_CSS, DISCLAIMER_BANNER, FOOTER_HTML, FOOTER_CSS };

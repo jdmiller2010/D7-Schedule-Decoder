@@ -189,6 +189,12 @@ function parseDate(str) {
 // All games run 9 AM – 6 PM. Times in the CSV have no AM/PM designator.
 // Hours 7–11 → AM (e.g. 9:00 AM Saturday morning)
 // Hour 12 and hours 1–6 → PM (12:30 PM, 3:00 PM, 6:00 PM)
+const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+function formatDateWithDay(str) {
+  const d = parseDate(str);
+  return DAYS[d.getDay()];
+}
+
 function formatTime(timeStr) {
   const [h, m] = timeStr.split(':').map(Number);
   const isPM = h === 12 || (h >= 1 && h <= 6);
@@ -273,10 +279,10 @@ const BASE_CSS = `
              margin-top: 1em; flex-wrap: wrap; gap: 0.5em; }
   .toolbar .game-count { font-size: 0.85em; color: #718096; margin: 0; }
   .btn-csv { display: inline-flex; align-items: center; gap: 0.4em;
-             background: #276749; color: white; border: none; border-radius: 6px;
+             background: #ce153f; color: white; border: none; border-radius: 6px;
              padding: 0.45em 1em; font-size: 0.85em; font-weight: 600;
              cursor: pointer; text-decoration: none; }
-  .btn-csv:hover { background: #22543d; }
+  .btn-csv:hover { background: #a01030; }
   .btn-back { font-size: 0.82em; color: #3182ce; text-decoration: none; }
   .btn-back:hover { text-decoration: underline; }
   .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch;
@@ -347,7 +353,7 @@ function generateTeamHTML(team, allGames, teams) {
 
     return `
       <tr>
-        <td><strong>${g.date}</strong><br><span class="week-label">Week ${g.week}</span></td>
+        <td><strong>${g.date}</strong><br><span class="week-label">Week ${g.week} &middot; ${formatDateWithDay(g.date)}</span></td>
         <td>${timeStr}</td>
         <td><span class="pill ${isHome ? 'home-pill' : 'away-pill'}">${isHome ? 'Home' : 'Away'}</span></td>
         <td class="contact">
@@ -355,7 +361,7 @@ function generateTeamHTML(team, allGames, teams) {
           <small>${oppManager}${oppPhone ? ' &middot; ' + phoneLink(oppPhone) : ''}</small>
           <small>${oppEmail ? '<a href="mailto:' + oppEmail + '">' + oppEmail + '</a>' : ''}</small>
         </td>
-        <td>${g.location}</td>
+        <td><a href="../locations/${g.location.replace(/[^a-zA-Z0-9]/g, '_')}.html">${g.location}</a></td>
       </tr>`;
   }).join('');
 
@@ -393,7 +399,7 @@ function generateTeamHTML(team, allGames, teams) {
                     font-size: 0.78em; font-weight: 600; padding: 0.15em 0.65em;
                     margin-bottom: 0.75em; }
     .coach-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-                  gap: 1em; background: ${color.light}; border: 1px solid #e2e8f0;
+                  gap: 1em; background: ${color.light};
                   border-radius: 8px; padding: 1em 1.5em; margin-top: 0.5em; }
     .coach-grid .field label { display: block; font-size: 0.75em; color: #718096;
                                text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.1em; }
@@ -404,6 +410,9 @@ function generateTeamHTML(team, allGames, teams) {
 <body>
   ${navBar('../', 'teams')}
   <div class="page-body">
+    <div style="background:#fff8e1;border:1px solid #f6c90e;border-radius:8px;padding:0.75em 1em;margin-bottom:1.25em;font-size:0.85em;color:#7d5a00;line-height:1.5">
+      <strong>Coaching Staff Only</strong> &mdash; Please do not share this website or its contents beyond your coaching staff. Parents and families should receive the schedule through your league&rsquo;s official communication channels.
+    </div>
     <h1 class="page-title">${team.name}</h1>
     <span class="division-tag">${team.division}</span>
 
@@ -427,8 +436,8 @@ function generateTeamHTML(team, allGames, teams) {
     </div>
 
     <div class="toolbar">
-      <span class="game-count">${myGames.length} game${myGames.length !== 1 ? 's' : ''} scheduled &mdash; Weeks 1&ndash;8</span>
-      <button class="btn-csv" onclick="downloadCSV('csv-data','${csvFilename}')">&#8595; Download CSV</button>
+      <span class="game-count">${myGames.length} game${myGames.length !== 1 ? 's' : ''} scheduled</span>
+      <button class="btn-csv" onclick="downloadCSV('csv-data','${csvFilename}')">&#8595; Download Schedule</button>
     </div>
 
     <script id="csv-data" type="application/json">${JSON.stringify(csvData)}<\/script>
@@ -475,8 +484,8 @@ function generateLocationHTML(location, allGames, teams) {
   const rows = locGames.map(g => {
     const t1 = teams[g.team1];
     const t2 = teams[g.team2];
-    const n1 = t1 ? t1.name : `Team ${g.team1}`;
-    const n2 = t2 ? t2.name : `Team ${g.team2}`;
+    const n1 = t1 ? `<a href="../teams/${t1.num}_${t1.name.replace(/[^a-zA-Z0-9]/g, '_')}.html">${t1.name}</a>` : `Team ${g.team1}`;
+    const n2 = t2 ? `<a href="../teams/${t2.num}_${t2.name.replace(/[^a-zA-Z0-9]/g, '_')}.html">${t2.name}</a>` : `Team ${g.team2}`;
     const div = t1 ? t1.division : '';
     const color = divisionColor(div);
 
@@ -491,7 +500,7 @@ function generateLocationHTML(location, allGames, teams) {
 
     return `
       <tr>
-        <td><strong>${g.date}</strong><br><span class="week-label">Week ${g.week}</span></td>
+        <td><strong>${g.date}</strong><br><span class="week-label">Week ${g.week} &middot; ${formatDateWithDay(g.date)}</span></td>
         <td>${timeStr}</td>
         <td><span class="pill" style="background:${color.bg}22; color:${color.bg}; border: 1px solid ${color.bg}44">${div || '—'}</span></td>
         <td class="contact">
@@ -545,7 +554,7 @@ function generateLocationHTML(location, allGames, teams) {
 
     <div class="toolbar">
       <span class="game-count">${locGames.length} game${locGames.length !== 1 ? 's' : ''} scheduled</span>
-      <button class="btn-csv" onclick="downloadCSV('csv-data','${csvFilename}')">&#8595; Download CSV</button>
+      <button class="btn-csv" onclick="downloadCSV('csv-data','${csvFilename}')">&#8595; Download Schedule</button>
     </div>
 
     <script id="csv-data" type="application/json">${JSON.stringify(csvData)}<\/script>
@@ -576,9 +585,9 @@ function generateLocationHTML(location, allGames, teams) {
 }
 
 // ---------------------------------------------------------------------------
-// Coaches directory page — all coaches grouped by league
+// Leagues directory page — all teams grouped by league with per-league CSV download
 // ---------------------------------------------------------------------------
-function generateCoachesHTML(teams) {
+function generateLeaguesHTML(teams, allGames) {
   const divisionOrder = [
     '3A Player Pitch Baseball', 'Major Baseball', '50/70 Baseball', 'JR Baseball',
     '2A Softball', '3A Softball', 'Major Softball', 'JR Softball',
@@ -604,6 +613,35 @@ function generateCoachesHTML(teams) {
   const leagueNames = Object.keys(byLeague).sort();
 
   const leagueSections = leagueNames.map(league => {
+    const id = `league-${league.replace(/[^a-zA-Z0-9]/g, '-')}`;
+    const csvId = `csv-${id}`;
+    const csvFilename = `${league.replace(/[^a-zA-Z0-9]/g, '_')}_teams.csv`;
+
+    const leagueNums = new Set(byLeague[league].map(t => t.num));
+    const scheduleRows = [];
+    for (const g of allGames) {
+      const isSat = new Date(`${g.date} 2026`).getDay() === 6;
+      const timeStr = g.time ? formatTime(g.time) : (isSat ? 'TBD' : '6:00 PM');
+      for (const [ourNum, oppNum, homeAway] of [[g.team1, g.team2, 'Away'], [g.team2, g.team1, 'Home']]) {
+        if (!leagueNums.has(ourNum)) continue;
+        const our = teams[ourNum];
+        const opp = teams[oppNum];
+        scheduleRows.push([
+          g.date, `Week ${g.week}`, timeStr,
+          our ? our.name : ourNum, our ? our.division : '',
+          homeAway,
+          opp ? opp.name : oppNum,
+          opp ? opp.manager : '', opp ? opp.phone : '', opp ? opp.email : '',
+          g.location,
+        ]);
+      }
+    }
+    scheduleRows.sort((a, b) => parseDate(a[0]) - parseDate(b[0]) || a[2].localeCompare(b[2]));
+    const csvData = [
+      ['Date', 'Week', 'Time', 'Team', 'Division', 'Home/Away', 'Opponent', 'Opp Manager', 'Opp Phone', 'Opp Email', 'Location'],
+      ...scheduleRows,
+    ];
+
     const rows = byLeague[league].map(t => {
       const phone = phoneLink(t.phone, '<span style="color:#a0aec0">—</span>');
       const email = t.email
@@ -619,10 +657,13 @@ function generateCoachesHTML(teams) {
       </tr>`;
     }).join('');
 
-    const id = `league-${league.replace(/[^a-zA-Z0-9]/g, '-')}`;
     return `
     <div class="league-block" id="${id}">
-      <h2 class="league-name">${league}</h2>
+      <div class="league-header">
+        <h2 class="league-name">${league}</h2>
+        <button class="btn-csv" onclick="downloadCSV('${csvId}','${csvFilename}')">&#8595; Download Schedule</button>
+      </div>
+      <script id="${csvId}" type="application/json">${JSON.stringify(csvData)}<\/script>
       <div class="table-scroll">
         <table>
           <thead><tr><th>Team</th><th>Division</th><th>Manager</th><th>Phone</th><th>Email</th></tr></thead>
@@ -641,7 +682,7 @@ function generateCoachesHTML(teams) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Coach Directory — 2026 D7</title>
+  <title>League Directory — 2026 D7</title>
   <style>
     * { box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
@@ -655,9 +696,9 @@ function generateCoachesHTML(teams) {
                   border: 1px solid #bee3f8; }
     .jump-nav a:hover { background: #ebf8ff; }
     .league-block { margin-bottom: 2.5em; scroll-margin-top: 70px; }
-    .league-name { font-size: 1.15em; font-weight: 700; color: #1a202c;
-                   border-bottom: 3px solid #00053d; padding-bottom: 0.3em;
-                   margin: 0 0 0.6em; }
+    .league-header { display: flex; align-items: center; justify-content: space-between;
+                     margin-bottom: 0.6em; }
+    .league-name { font-size: 1.15em; font-weight: 700; color: #1a202c; margin: 0; }
     .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch;
                     border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
     table { width: 100%; border-collapse: collapse; background: white;
@@ -670,6 +711,10 @@ function generateCoachesHTML(teams) {
     tbody tr.team-row { cursor: pointer; }
     a { color: #3182ce; text-decoration: none; }
     a:hover { text-decoration: underline; }
+    .btn-csv { display: inline-flex; align-items: center; gap: 0.4em;
+               background: #ce153f; color: white; border: none; border-radius: 6px;
+               padding: 0.35em 0.85em; font-size: 0.8em; font-weight: 600; cursor: pointer; }
+    .btn-csv:hover { background: #a01030; }
     @media (max-width: 700px) {
       .page-body { padding: 1em; }
       h1.page-title { font-size: 1.35em; }
@@ -678,13 +723,14 @@ function generateCoachesHTML(teams) {
   </style>
 </head>
 <body>
-  ${navBar('', 'coaches')}
+  ${navBar('', 'leagues')}
   <div class="page-body">
-    <h1 class="page-title">Coach Directory — 2026 D7 Inter-League</h1>
+    <h1 class="page-title">League Directory — 2026 D7 Inter-League</h1>
     <p class="page-subtitle">${Object.keys(teams).length} teams across ${leagueNames.length} leagues</p>
     <div class="jump-nav">${jumpLinks}</div>
     ${leagueSections}
   </div>
+  ${CSV_SCRIPT}
   ${FOOTER_HTML}
 </body>
 </html>`;
@@ -693,7 +739,7 @@ function generateCoachesHTML(teams) {
 // ---------------------------------------------------------------------------
 // Index page linking to all generated files
 // ---------------------------------------------------------------------------
-function generateIndex(teams, locations) {
+function generateIndex(teams, locations, allGames) {
   const divisionOrder = [
     '3A Player Pitch Baseball',
     'Major Baseball',
@@ -727,6 +773,15 @@ function generateIndex(teams, locations) {
         <ul>${links}</ul>
       </section>`;
   }).join('\n');
+
+  const totalGames = allGames.length;
+  const totalTeams = Object.keys(teams).length;
+  const totalLocations = locations.length;
+  const weekNums = [...new Set(allGames.map(g => g.week))].sort((a, b) => a - b);
+  const totalWeeks = weekNums.length;
+  const dates = allGames.map(g => parseDate(g.date)).sort((a, b) => a - b);
+  const fmt = d => d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+  const seasonRange = dates.length ? `${fmt(dates[0])} – ${fmt(dates[dates.length - 1])}, 2026` : '2026';
 
   const locationLinks = locations.sort().map(loc => {
     const file = `locations/${loc.replace(/[^a-zA-Z0-9]/g, '_')}.html`;
@@ -770,7 +825,7 @@ function generateIndex(teams, locations) {
   ${navBar('', 'home')}
   <div class="page-body">
     <h1 class="page-title">2026 D7 Inter-League Schedule</h1>
-    <p class="page-subtitle">Season runs April 13 – June 6, 2026 &nbsp;&middot;&nbsp; 8 weeks &nbsp;&middot;&nbsp; 597 games &nbsp;&middot;&nbsp; 92 teams &nbsp;&middot;&nbsp; 32 locations</p>
+    <p class="page-subtitle">Season runs ${seasonRange} &nbsp;&middot;&nbsp; ${totalWeeks} weeks &nbsp;&middot;&nbsp; ${totalGames} games &nbsp;&middot;&nbsp; ${totalTeams} teams &nbsp;&middot;&nbsp; ${totalLocations} locations</p>
 
     <div class="grid">
       <div class="panel" id="teams">
@@ -806,7 +861,7 @@ console.log(`  Loaded ${Object.keys(teams).length} teams`);
 
 console.log('Parsing week schedules...');
 const allGames = [];
-for (let w = 1; w <= 8; w++) {
+for (let w = 1; w <= 52; w++) {
   const weekFile = path.join(baseDir, `2026 D7 Original Schedule - Week ${w}.csv`);
   if (fs.existsSync(weekFile)) {
     const content = fs.readFileSync(weekFile, 'utf8');
@@ -816,6 +871,20 @@ for (let w = 1; w <= 8; w++) {
   }
 }
 console.log(`  Total: ${allGames.length} games across all weeks`);
+
+// Assign default times for Saturday games without an explicit time.
+// Group timeless Saturday games by date+location; first game → 12:30, second → 3:00.
+const satGroups = {};
+for (const g of allGames) {
+  if (g.time || parseDate(g.date).getDay() !== 6) continue;
+  const key = `${g.date}|${g.location}`;
+  if (!satGroups[key]) satGroups[key] = [];
+  satGroups[key].push(g);
+}
+for (const games of Object.values(satGroups)) {
+  if (games[0]) games[0].time = '12:30';
+  if (games[1]) games[1].time = '3:00';
+}
 
 console.log('Generating team schedules...');
 for (const team of Object.values(teams)) {
@@ -835,11 +904,11 @@ for (const loc of locations) {
 console.log(`  Generated ${locations.length} location files`);
 
 console.log('Generating index...');
-const indexHtml = injectGate(generateIndex(teams, locations), gateSnippet);
+const indexHtml = injectGate(generateIndex(teams, locations, allGames), gateSnippet);
 fs.writeFileSync(path.join(outputDir, 'index.html'), indexHtml);
 
-console.log('Generating coaches directory...');
-const coachesHtml = injectGate(generateCoachesHTML(teams), gateSnippet);
-fs.writeFileSync(path.join(outputDir, 'coaches.html'), coachesHtml);
+console.log('Generating leagues directory...');
+const leaguesHtml = injectGate(generateLeaguesHTML(teams, allGames), gateSnippet);
+fs.writeFileSync(path.join(outputDir, 'leagues.html'), leaguesHtml);
 
 console.log('\nDone! Open output/index.html in a browser to browse all schedules.');
