@@ -25,5 +25,8 @@
   "homepage": "https://github.com/jdmiller2010/D7-Schedule-Decoder#readme",
   "devDependencies": {
     "vite": "^8.0.7"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5"
   }
 }

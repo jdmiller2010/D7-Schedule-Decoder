@@ -173,7 +173,49 @@ const NAV_CSS = `
     .disclaimer-banner { padding: 0.6em 1em; }
   }`;
 
-const DISCLAIMER_BANNER = `<div class="disclaimer-banner">This tool is provided independently and is not affiliated with, endorsed by, or authorized by any Local League, Oregon District 7, or Little League International. It is intended solely as a user-friendly presentation of the official District 7 interleague schedule. While we strive for accuracy, this tool may not reflect all updates or changes. The official District 7 schedule should always be considered the final and authoritative source. This tool is provided as-is, without warranty of any kind.</div>`;
+const DIVISION_ORDER = [
+  '3A Player Pitch Baseball', 'Major Baseball', '50/70 Baseball', 'JR Baseball',
+  '2A Softball', '3A Softball', 'Major Softball', 'JR Softball',
+];
+
+const DISCLAIMER_TEXT = 'This tool is provided independently and is not affiliated with, endorsed by, or authorized by any Local League, Oregon District 7, or Little League International. It is intended solely as a user-friendly presentation of the official District 7 interleague schedule. While we strive for accuracy, this tool may not reflect all updates or changes. The official District 7 schedule should always be considered the final and authoritative source. This tool is provided as-is, without warranty of any kind.';
+
+const DISCLAIMER_BANNER = `<div class="disclaimer-banner">${DISCLAIMER_TEXT}</div>`;
+
+const SCHEDULE_INFO_BANNER = `<div style="background:#ebf8ff;border:1px solid #90cdf4;border-radius:8px;margin-top:1em;margin-bottom:1.25em;font-size:0.85em;color:#2c5282;overflow:hidden">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:0.65em 1em;cursor:pointer;user-select:none;background:#2b6cb0;border-radius:8px 8px 0 0" onclick="d7InfoToggle(this)">
+    <strong style="font-size:1.05em;color:white;letter-spacing:0.01em">Schedule Info &amp; Disclaimer</strong>
+    <span class="info-arrow" style="font-size:0.8em;color:rgba(255,255,255,0.8)">▲</span>
+  </div>
+  <div class="info-body" style="padding:0 1em 0.75em;line-height:1.5">
+    <strong>Schedule as provided by D7 on April 12, 2026.</strong><br>
+    This site was built to offer a more user-friendly way to browse the official D7 schedule &mdash; it is not intended as an independent or alternate schedule.
+    Unfortunately, tracking and maintaining individual game changes isn&rsquo;t something we&rsquo;re able to do, so this site will only be updated if D7 releases a full revised schedule.
+    Please always refer to D7 or your Local League directly for the most current information.
+    If this site becomes significantly out of date, it will be taken down to avoid any confusion.
+    <br><br>
+    <strong>Coaching Staff Only</strong> &mdash; Please do not share this website or its contents beyond your coaching staff. Parents and families should receive the schedule through your league&rsquo;s official communication channels.
+  </div>
+  <script>
+  window.d7InfoToggle = function(el) {
+    var body = el.parentElement.querySelector('.info-body');
+    var arrow = el.querySelector('.info-arrow');
+    var collapsed = body.style.display === 'none';
+    body.style.display = collapsed ? '' : 'none';
+    arrow.textContent = collapsed ? '▲' : '▼';
+    try { sessionStorage.setItem('d7_info_collapsed', collapsed ? '0' : '1'); } catch(e) {}
+  };
+  (function() {
+    try {
+      if (sessionStorage.getItem('d7_info_collapsed') === '1') {
+        var b = document.currentScript.parentElement.querySelector('.info-body');
+        var a = document.currentScript.parentElement.querySelector('.info-arrow');
+        if (b) { b.style.display = 'none'; a.textContent = '▼'; }
+      }
+    } catch(e) {}
+  }());
+  <\/script>
+</div>`;
 
 // ---------------------------------------------------------------------------
 // Shared footer
@@ -191,11 +233,11 @@ const FOOTER_CSS = `
   .site-footer .sep { color: rgba(255,255,255,0.2); }`;
 
 const FOOTER_HTML = `
-  <div class="disclaimer-banner">This tool is provided independently and is not affiliated with, endorsed by, or authorized by any Local League, Oregon District 7, or Little League International. It is intended solely as a user-friendly presentation of the official District 7 interleague schedule. While we strive for accuracy, this tool may not reflect all updates or changes. The official District 7 schedule should always be considered the final and authoritative source. This tool is provided as-is, without warranty of any kind.</div>
+  ${DISCLAIMER_BANNER}
   <footer class="site-footer">
     <span>&copy; 2026 Jordan Miller. All rights reserved.</span>
     <span class="sep">&middot;</span>
     <span><a href="mailto:jdmiller2010@gmail.com">jdmiller2010@gmail.com</a></span>
   </footer>`;
 
-module.exports = { loadEnv, getPasswordHash, passwordGateSnippet, injectGate, navBar, NAV_CSS, PAGE_HEADER_CSS, DISCLAIMER_BANNER, FOOTER_HTML, FOOTER_CSS };
+module.exports = { loadEnv, getPasswordHash, passwordGateSnippet, injectGate, navBar, NAV_CSS, PAGE_HEADER_CSS, DISCLAIMER_BANNER, SCHEDULE_INFO_BANNER, FOOTER_HTML, FOOTER_CSS, DIVISION_ORDER };
